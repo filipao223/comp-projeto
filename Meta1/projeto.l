@@ -1,5 +1,5 @@
 ID  ([A-Z]*|[a-z]*)+
-RESERVED (break|default|func|interface|select|case|defer|go|map|struct|chan|else|goto|package|switch|const|fallthrough|if|range|type|continue|for|import|return|var)
+RESERVED (break|default|func|interface|select|case|defer|go|map|struct|chan|else|goto|package|switch|const|fallthrough|if|range|type|continue|for|import|return|var|"++"|"--")
 OCTAL (0)[0-7]+
 HEXA  (0x|0X)([0-9]*|[a-f|A-F]*)+
 %%
