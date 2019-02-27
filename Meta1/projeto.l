@@ -1,6 +1,7 @@
 ID  ([A-Z]*|[a-z]*)+
 RESERVED (break|default|func|interface|select|case|defer|go|map|struct|chan|else|goto|package|switch|const|fallthrough|if|range|type|continue|for|import|return|var)
-
+OCTAL (0)[0-7]+
+HEXA  (0x|0X)([0-9]*|[a-f|A-F]*)+
 %%
 
 " "                                     ;
@@ -43,6 +44,7 @@ RESERVED (break|default|func|interface|select|case|defer|go|map|struct|chan|else
 "strconv.Atoi"                          printf("PARSEINT\n");
 "func"                                  printf("FUNC\n");
 "os.Args"                               printf("CMDARGS\n");
+{OCTAL}|{HEXA}                          printf("INTLIT\n");
 {RESERVED}                              printf("RESERVED\n");
 _*{ID}                                  printf("ID\n");
 
