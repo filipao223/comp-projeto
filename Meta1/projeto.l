@@ -1,7 +1,8 @@
-ID  ([A-Z]*|[a-z]*)+
-RESERVED (break|default|func|interface|select|case|defer|go|map|struct|chan|else|goto|package|switch|const|fallthrough|if|range|type|continue|for|import|return|var|"++"|"--")
-OCTAL (0)[0-7]+
-HEXA  (0x|0X)([0-9]*|[a-f|A-F]*)+
+ID                                      ([A-Z]*|[a-z]*)+
+RESERVED                                (break|default|func|interface|select|case|defer|go|map|struct|chan|else|goto|package|switch|const|fallthrough|if|range|type|continue|for|import|return|var|"++"|"--")
+OCTAL                                   (0)[0-7]+
+HEXA                                    (0x|0X)([0-9]*|[a-f|A-F]*)+
+REALLIT                                 ([1-9]+"."[0-9]*(e"-"?[0-9]+)?)
 %%
 
 " "                                     ;
@@ -45,6 +46,7 @@ HEXA  (0x|0X)([0-9]*|[a-f|A-F]*)+
 "func"                                  printf("FUNC\n");
 "os.Args"                               printf("CMDARGS\n");
 {OCTAL}|{HEXA}                          printf("INTLIT\n");
+{REALLIT}                               printf("REALLIT\n");
 {RESERVED}                              printf("RESERVED\n");
 _*{ID}                                  printf("ID\n");
 
