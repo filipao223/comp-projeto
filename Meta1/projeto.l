@@ -1,7 +1,10 @@
 %{
     //If argument -1 is received, set as 1
     int print_tokens;
-
+    int total_lines = 1;
+    int total_columns = 1;
+    int error_line_number;
+    int error_column_number;
     int comment = 0;  
 %}
 
@@ -17,56 +20,56 @@ STRLIT                                  \".*\"
 
 %%
 
-" "                                     ;
-"\n"                                    ;
-"/*"                                    {comment = 1;BEGIN COMMENT;};
-<COMMENT>[^[*|/]]*                      ;
-<COMMENT>"*/"                           {comment = 0; BEGIN 0;};
-";"                                     {if (print_tokens==1) printf("SEMICOLON\n");};
-"_"                                     {if (print_tokens==1) printf("BLANKID\n");};
-"package"                               {if (print_tokens==1) printf("PACKAGE\n");};
-"return"                                {if (print_tokens==1) printf("RETURN\n");};
-"&&"                                    {if (print_tokens==1) printf("AND\n");};
-"="                                     {if (print_tokens==1) printf("ASSIGN\n");};
-"*"                                     {if (print_tokens==1) printf("STAR\n");};
-","                                     {if (print_tokens==1) printf("COMMA\n");};
-"/"                                     {if (print_tokens==1) printf("DIV\n");};
-"=="                                    {if (print_tokens==1) printf("EQ\n");};
-">="                                    {if (print_tokens==1) printf("GE\n");};
-">"                                     {if (print_tokens==1) printf("GT\n");};
-"{"                                     {if (print_tokens==1) printf("LBRACE\n");};
-"<="                                    {if (print_tokens==1) printf("LE\n");};
-"("                                     {if (print_tokens==1) printf("LPAR\n");};
-"["                                     {if (print_tokens==1) printf("LSQ\n");};
-"<"                                     {if (print_tokens==1) printf("LT\n");};
-"-"                                     {if (print_tokens==1) printf("MINUS\n");};
-"%"                                     {if (print_tokens==1) printf("MOD\n");};
-"!="                                    {if (print_tokens==1) printf("NE\n");};
-"!"                                     {if (print_tokens==1) printf("NOT\n");};
-"||"                                    {if (print_tokens==1) printf("OR\n");};
-"+"                                     {if (print_tokens==1) printf("PLUS\n");};
-"}"                                     {if (print_tokens==1) printf("RBRACE\n");};
-")"                                     {if (print_tokens==1) printf("RPAR\n");};
-"]"                                     {if (print_tokens==1) printf("RSQ\n");};
-"else"                                  {if (print_tokens==1) printf("ELSE\n");};
-"for"                                   {if (print_tokens==1) printf("FOR\n");};
-"if"                                    {if (print_tokens==1) printf("IF\n");};
-"var"                                   {if (print_tokens==1) printf("VAR\n");};
-"int"                                   {if (print_tokens==1) printf("INT\n");};
-"float32"                               {if (print_tokens==1) printf("FLOAT32\n");};
-"bool"                                  {if (print_tokens==1) printf("BOOL\n");};
-"string"                                {if (print_tokens==1) printf("STRING\n");};
-"fmt.Println"                           {if (print_tokens==1) printf("PRINT\n");};
-"strconv.Atoi"                          {if (print_tokens==1) printf("PARSEINT\n");};
-"func"                                  {if (print_tokens==1) printf("FUNC\n");};
-"os.Args"                               {if (print_tokens==1) printf("CMDARGS\n");};
-{STRLIT}                                {if (print_tokens==1) printf("STRLIT\n");};
-{INT}                                   {if (print_tokens==1) printf("INT\n");};
-{OCTAL}|{HEXA}                          {if (print_tokens==1) printf("INTLIT(%s)\n", yytext);};
-{REALLIT}                               {if (print_tokens==1) printf("REALLIT\n");};
-{RESERVED}                              {if (print_tokens==1) printf("RESERVED\n");};
-_*{ID}                                  {if (print_tokens==1) printf("ID(%s)\n", yytext);};
-.                                       ;
+" "                                     total_columns += strlen(yytext);
+"\n"                                    ++total_lines; total_columns=1;
+"/*"                                    { error_line_number = total_lines; error_column_number = total_columns;comment = 1;BEGIN COMMENT;};
+<COMMENT>[^[*|/]]*                      total_columns += strlen(yytext);
+<COMMENT>"*/"                           { total_columns += strlen(yytext); comment = 0; BEGIN 0;};
+";"                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("SEMICOLON\n");};
+"_"                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("BLANKID\n");};
+"package"                               { total_columns += strlen(yytext); if (print_tokens==1) printf("PACKAGE\n");};
+"return"                                { total_columns += strlen(yytext); if (print_tokens==1) printf("RETURN\n");};
+"&&"                                    { total_columns += strlen(yytext); if (print_tokens==1) printf("AND\n");};
+"="                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("ASSIGN\n");};
+"*"                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("STAR\n");};
+","                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("COMMA\n");};
+"/"                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("DIV\n");};
+"=="                                    { total_columns += strlen(yytext); if (print_tokens==1) printf("EQ\n");};
+">="                                    { total_columns += strlen(yytext); if (print_tokens==1) printf("GE\n");};
+">"                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("GT\n");};
+"{"                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("LBRACE\n");};
+"<="                                    { total_columns += strlen(yytext); if (print_tokens==1) printf("LE\n");};
+"("                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("LPAR\n");};
+"["                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("LSQ\n");};
+"<"                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("LT\n");};
+"-"                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("MINUS\n");};
+"%"                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("MOD\n");};
+"!="                                    { total_columns += strlen(yytext); if (print_tokens==1) printf("NE\n");};
+"!"                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("NOT\n");};
+"||"                                    { total_columns += strlen(yytext); if (print_tokens==1) printf("OR\n");};
+"+"                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("PLUS\n");};
+"}"                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("RBRACE\n");};
+")"                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("RPAR\n");};
+"]"                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("RSQ\n");};
+"else"                                  { total_columns += strlen(yytext); if (print_tokens==1) printf("ELSE\n");};
+"for"                                   { total_columns += strlen(yytext); if (print_tokens==1) printf("FOR\n");};
+"if"                                    { total_columns += strlen(yytext); if (print_tokens==1) printf("IF\n");};
+"var"                                   { total_columns += strlen(yytext); if (print_tokens==1) printf("VAR\n");};
+"int"                                   { total_columns += strlen(yytext); if (print_tokens==1) printf("INT\n");};
+"float32"                               { total_columns += strlen(yytext); if (print_tokens==1) printf("FLOAT32\n");};
+"bool"                                  { total_columns += strlen(yytext); if (print_tokens==1) printf("BOOL\n");};
+"string"                                { total_columns += strlen(yytext); if (print_tokens==1) printf("STRING\n");};
+"fmt.Println"                           { total_columns += strlen(yytext); if (print_tokens==1) printf("PRINT\n");};
+"strconv.Atoi"                          { total_columns += strlen(yytext); if (print_tokens==1) printf("PARSEINT\n");};
+"func"                                  { total_columns += strlen(yytext); if (print_tokens==1) printf("FUNC\n");};
+"os.Args"                               { total_columns += strlen(yytext); if (print_tokens==1) printf("CMDARGS\n");};
+{STRLIT}                                { total_columns += strlen(yytext); if (print_tokens==1) printf("STRLIT\n");};
+{INT}                                   { total_columns += strlen(yytext); if (print_tokens==1) printf("INT\n");};
+{OCTAL}|{HEXA}                          { total_columns += strlen(yytext); if (print_tokens==1) printf("INTLIT(%s)\n", yytext);};
+{REALLIT}                               { total_columns += strlen(yytext); if (print_tokens==1) printf("REALLIT\n");};
+{RESERVED}                              { total_columns += strlen(yytext); if (print_tokens==1) printf("RESERVED\n");};
+_*{ID}                                  { total_columns += strlen(yytext); if (print_tokens==1) printf("ID(%s)\n", yytext);};
+.                                       total_columns += strlen(yytext);
 %%
 int main(int argc, char **argv)
 {
@@ -75,7 +78,9 @@ if (argc > 1){
 }
 else print_tokens = 0;
 yylex();
-//if (comment == 1) printf("Missing /*");
+if (comment == 1){
+    printf("Line %d, column %d: unterminated comment\n", error_line_number, error_column_number);
+}
 return 0;
 }
 
