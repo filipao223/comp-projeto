@@ -1,6 +1,8 @@
 %{
     //If argument -1 is received, set as 1
-    int print_tokens;    
+    int print_tokens;
+
+    int comment = 0;  
 %}
 
 ID                                      ([A-Z]*|[a-z]*)+
@@ -9,11 +11,17 @@ OCTAL                                   (0)[0-7]+
 HEXA                                    (0x|0X)([0-9]*|[a-f|A-F]*)+
 INT                                     ([0]|[1-9]+)
 REALLIT                                 ([1-9]*"."?[0-9]*((e|E)("-"|"+")?[0-9]+)?)
-STRLIT                                  \".*\"                       
+STRLIT                                  \".*\"         
+
+%X COMMENT
+
 %%
 
 " "                                     ;
 "\n"                                    ;
+"/*"                                    {comment = 1;BEGIN COMMENT;};
+<COMMENT>[^[*|/]]*                      ;
+<COMMENT>"*/"                           {comment = 0; BEGIN 0;};
 ";"                                     {if (print_tokens==1) printf("SEMICOLON\n");};
 "_"                                     {if (print_tokens==1) printf("BLANKID\n");};
 "package"                               {if (print_tokens==1) printf("PACKAGE\n");};
@@ -53,11 +61,12 @@ STRLIT                                  \".*\"
 "func"                                  {if (print_tokens==1) printf("FUNC\n");};
 "os.Args"                               {if (print_tokens==1) printf("CMDARGS\n");};
 {STRLIT}                                {if (print_tokens==1) printf("STRLIT\n");};
-{INT}|{OCTAL}|{HEXA}                    {if (print_tokens==1) printf("INTLIT(%s)\n", yytext);};
+{INT}                                   {if (print_tokens==1) printf("INT\n");};
+{OCTAL}|{HEXA}                          {if (print_tokens==1) printf("INTLIT(%s)\n", yytext);};
 {REALLIT}                               {if (print_tokens==1) printf("REALLIT\n");};
 {RESERVED}                              {if (print_tokens==1) printf("RESERVED\n");};
 _*{ID}                                  {if (print_tokens==1) printf("ID(%s)\n", yytext);};
-
+.                                       ;
 %%
 int main(int argc, char **argv)
 {
@@ -66,6 +75,7 @@ if (argc > 1){
 }
 else print_tokens = 0;
 yylex();
+//if (comment == 1) printf("Missing /*");
 return 0;
 }
 
