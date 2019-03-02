@@ -1,14 +1,18 @@
 %{
+    #define MAX_STR 1024
     //If argument -1 is received, set as 1
     int print_tokens;
     int total_lines = 1;
     int total_columns = 1;
     int error_line_number;
     int error_column_number;
-    int comment = 0;  
+    int comment = 0;
+
+    //Hold current strlit
+    char str[MAX_STR];
 %}
 
-ID                                      ([A-Z]*|[a-z]*)+
+ID                                      (([A-Z]*|[a-z]*)+|_*)
 RESERVED                                (break|default|func|interface|select|case|defer|go|map|struct|chan|else|goto|package|switch|const|fallthrough|if|range|type|continue|for|import|return|var|"++"|"--")
 OCTAL                                   (0)[0-7]+
 HEXA                                    (0x|0X)([0-9]*|[a-f|A-F]*)+
@@ -17,6 +21,7 @@ REALLIT                                 ([1-9]*"."?[0-9]*((e|E)("-"|"+")?[0-9]+)
 STRLIT                                  \".*\"         
 
 %X COMMENT
+%X STRING
 
 %%
 
@@ -34,6 +39,7 @@ STRLIT                                  \".*\"
 "="                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("ASSIGN\n");};
 "*"                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("STAR\n");};
 ","                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("COMMA\n");};
+"//".*                                  ;
 "/"                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("DIV\n");};
 "=="                                    { total_columns += strlen(yytext); if (print_tokens==1) printf("EQ\n");};
 ">="                                    { total_columns += strlen(yytext); if (print_tokens==1) printf("GE\n");};
@@ -64,12 +70,16 @@ STRLIT                                  \".*\"
 "strconv.Atoi"                          { total_columns += strlen(yytext); if (print_tokens==1) printf("PARSEINT\n");};
 "func"                                  { total_columns += strlen(yytext); if (print_tokens==1) printf("FUNC\n");};
 "os.Args"                               { total_columns += strlen(yytext); if (print_tokens==1) printf("CMDARGS\n");};
-{STRLIT}                                { total_columns += strlen(yytext); if (print_tokens==1) printf("STRLIT\n");};
-{INT}                                   { total_columns += strlen(yytext); if (print_tokens==1) printf("INT\n");};
-{OCTAL}|{HEXA}                          { total_columns += strlen(yytext); if (print_tokens==1) printf("INTLIT(%s)\n", yytext);};
+\"                                      { ++total_columns; BEGIN STRING; str[0] = '\0';};
+<STRING>"\[\|n|f|r|t|\"]"               { total_columns+= strlen(yytext);};
+<STRING>"\n"                            {total_columns=0; ++total_lines; printf("Line %d, column %d: unterminated string literal\n", total_lines, total_columns); BEGIN 0;};
+<STRING>\"                              { ++total_columns; printf("STRLIT(%s)", str); BEGIN 0;}
+<STRING>\.                              {total_columns += strlen(yytext); printf("Line %d, column %d: invalid escape sequence(%s)\n", total_lines, total_columns, yytext);};
+<STRING>.                               {total_columns += strlen(yytext); strcat(yytext, str);};
+{INT}|{OCTAL}|{HEXA}                    { total_columns += strlen(yytext); if (print_tokens==1) printf("INTLIT(%s)\n", yytext);};
 {REALLIT}                               { total_columns += strlen(yytext); if (print_tokens==1) printf("REALLIT\n");};
 {RESERVED}                              { total_columns += strlen(yytext); if (print_tokens==1) printf("RESERVED\n");};
-_+{ID}                                  { total_columns += strlen(yytext); if (print_tokens==1) printf("ID(%s)\n", yytext);};
+{ID}                                    { total_columns += strlen(yytext); if (print_tokens==1) printf("ID(%s)\n", yytext);};
 .                                       printf("Line %d, column %d: illegal character (%s)\n", total_lines, total_columns, yytext); total_columns += strlen(yytext);
 %%
 int main(int argc, char **argv)
