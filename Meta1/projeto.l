@@ -23,6 +23,7 @@ STRLIT                                  \".*\"
 " "                                     total_columns += strlen(yytext);
 "\n"                                    ++total_lines; total_columns=1;
 "/*"                                    { error_line_number = total_lines; error_column_number = total_columns;comment = 1;BEGIN COMMENT;};
+<COMMENT>"\n"                           ++total_lines; total_columns=1;
 <COMMENT>[^[*|/]]*                      total_columns += strlen(yytext);
 <COMMENT>"*/"                           { total_columns += strlen(yytext); comment = 0; BEGIN 0;};
 ";"                                     { total_columns += strlen(yytext); if (print_tokens==1) printf("SEMICOLON\n");};
