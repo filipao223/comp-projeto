@@ -18,7 +18,7 @@
     int semicolon = 0;
 
     //Hold current strlit
-    char str[MAX_STR];
+    char current_string[MAX_STR];
 %}
 
 ID                                      (([A-Z]*|[a-z]*)+|_*)
@@ -30,15 +30,16 @@ REALLIT                                 ([1-9]*"."?[0-9]*((e|E)("-"|"+")?[0-9]+)
 
 %X COMMENT
 %X STRING
+%X ILLEGAL_ESC
 
 %%
 
-" "                                     semicolon=0; total_columns += strlen(yytext);
+" "                                     total_columns += strlen(yytext);
 "\n"                                    { ++total_lines; total_columns=1; if (semicolon==1){printf("SEMICOLON\n"); semicolon=0;}};
-"/*"                                    { semicolon=0; error_line_number = total_lines; error_column_number = total_columns;comment = 1;BEGIN COMMENT;};
+"/*"                                    { ; error_line_number = total_lines; error_column_number = total_columns;comment = 1;BEGIN COMMENT;};
 <COMMENT>"\n"                           ++total_lines; total_columns=1;
 <COMMENT>[^[*|/]]*                      total_columns += strlen(yytext);
-<COMMENT>"*/"                           { semicolon=0; total_columns += strlen(yytext); comment = 0; BEGIN 0;};
+<COMMENT>"*/"                           { total_columns += strlen(yytext); comment = 0; BEGIN 0;};
 ";"                                     { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("SEMICOLON\n");};
 "_"                                     { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("BLANKID\n");};
 "package"                               { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("PACKAGE\n");};
@@ -47,7 +48,7 @@ REALLIT                                 ([1-9]*"."?[0-9]*((e|E)("-"|"+")?[0-9]+)
 "="                                     { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("ASSIGN\n");};
 "*"                                     { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("STAR\n");};
 ","                                     { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("COMMA\n");};
-"//".*                                  semicolon=0;
+"//".*                                  ;
 "/"                                     { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("DIV\n");};
 "=="                                    { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("EQ\n");};
 ">="                                    { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("GE\n");};
@@ -78,12 +79,15 @@ REALLIT                                 ([1-9]*"."?[0-9]*((e|E)("-"|"+")?[0-9]+)
 "strconv.Atoi"                          { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("PARSEINT\n");};
 "func"                                  { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("FUNC\n");};
 "os.Args"                               { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("CMDARGS\n");};
-\"                                      { semicolon=0; ++total_columns; str[0] = '\0'; BEGIN STRING;};
-<STRING>"\[\|(n.*)|f|r|t|\"]"           { semicolon=0; total_columns+= strlen(yytext);};
+\"                                      { semicolon=0; ++total_columns; current_string[0] = '\0'; BEGIN STRING;};
+<STRING>\\((\\)|n|f|r|t|(\"))           { semicolon=0; total_columns+= strlen(yytext);};
+<STRING>\"                              { semicolon=1; ++total_columns; if (print_tokens==1) printf("STRLIT(\"%s\")\n", current_string); BEGIN 0;};
+<STRING>\\[^n]                          { printf("Line %d, column %d: invalid escape sequence (%s)\n", total_lines, total_columns, yytext); total_columns += strlen(yytext); BEGIN ILLEGAL_ESC;};
 <STRING>"\n"                            { semicolon=0; total_columns=1; printf("Line %d, column %d: unterminated string literal\n", total_lines, total_columns); ++total_lines; BEGIN 0;};
-<STRING>\"                              { semicolon=1; ++total_columns; if (print_tokens==1) printf("STRLIT(\"%s\")\n", str); BEGIN 0;};
-<STRING>\.                              { semicolon=0; total_columns += strlen(yytext); printf("Line %d, column %d: invalid escape sequence(%s)\n", total_lines, total_columns, yytext); BEGIN 0;};
-<STRING>.                               { semicolon=0; total_columns += strlen(yytext); strcat(str, yytext);};
+<STRING>.                               { semicolon=0; total_columns += strlen(yytext); strcat(current_string, yytext);};
+<ILLEGAL_ESC>\"                         { semicolon = 1; BEGIN 0;};
+<ILLEGAL_ESC>"\n"                       { ++total_lines; BEGIN 0;};
+<ILLEGAL_ESC>.                          ;
 {INT}|{OCTAL}|{HEXA}                    { semicolon=1; total_columns += strlen(yytext); if (print_tokens==1) printf("INTLIT(%s)\n", yytext);};
 {REALLIT}                               { semicolon=1; total_columns += strlen(yytext); if (print_tokens==1) printf("REALLIT(%s)\n", yytext);};
 {RESERVED}                              { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("RESERVED\n");};
