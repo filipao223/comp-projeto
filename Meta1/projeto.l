@@ -69,8 +69,8 @@ STRLIT                                  \".*\"
 {OCTAL}|{HEXA}                          { total_columns += strlen(yytext); if (print_tokens==1) printf("INTLIT(%s)\n", yytext);};
 {REALLIT}                               { total_columns += strlen(yytext); if (print_tokens==1) printf("REALLIT\n");};
 {RESERVED}                              { total_columns += strlen(yytext); if (print_tokens==1) printf("RESERVED\n");};
-_*{ID}                                  { total_columns += strlen(yytext); if (print_tokens==1) printf("ID(%s)\n", yytext);};
-.                                       total_columns += strlen(yytext);
+_+{ID}                                  { total_columns += strlen(yytext); if (print_tokens==1) printf("ID(%s)\n", yytext);};
+.                                       printf("Line %d, column %d: illegal character (%s)\n", total_lines, total_columns, yytext); total_columns += strlen(yytext);
 %%
 int main(int argc, char **argv)
 {
