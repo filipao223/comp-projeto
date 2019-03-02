@@ -17,8 +17,7 @@ RESERVED                                (break|default|func|interface|select|cas
 OCTAL                                   (0)[0-7]+
 HEXA                                    (0x|0X)([0-9]*|[a-f|A-F]*)+
 INT                                     ([0]|[1-9]+)
-REALLIT                                 ([1-9]*"."?[0-9]*((e|E)("-"|"+")?[0-9]+)?)
-STRLIT                                  \".*\"         
+REALLIT                                 ([1-9]*"."?[0-9]*((e|E)("-"|"+")?[0-9]+)?)     
 
 %X COMMENT
 %X STRING
@@ -70,12 +69,12 @@ STRLIT                                  \".*\"
 "strconv.Atoi"                          { total_columns += strlen(yytext); if (print_tokens==1) printf("PARSEINT\n");};
 "func"                                  { total_columns += strlen(yytext); if (print_tokens==1) printf("FUNC\n");};
 "os.Args"                               { total_columns += strlen(yytext); if (print_tokens==1) printf("CMDARGS\n");};
-\"                                      { ++total_columns; BEGIN STRING; str[0] = '\0';};
+\"                                      { ++total_columns; str[0] = '\0'; BEGIN STRING;};
 <STRING>"\[\|n|f|r|t|\"]"               { total_columns+= strlen(yytext);};
 <STRING>"\n"                            {total_columns=0; ++total_lines; printf("Line %d, column %d: unterminated string literal\n", total_lines, total_columns); BEGIN 0;};
-<STRING>\"                              { ++total_columns; printf("STRLIT(%s)", str); BEGIN 0;}
+<STRING>\"                              { ++total_columns; printf("STRLIT(%s)\n", str); BEGIN 0;}
 <STRING>\.                              {total_columns += strlen(yytext); printf("Line %d, column %d: invalid escape sequence(%s)\n", total_lines, total_columns, yytext);};
-<STRING>.                               {total_columns += strlen(yytext); strcat(yytext, str);};
+<STRING>.                               {total_columns += strlen(yytext); strcat(str, yytext);};
 {INT}|{OCTAL}|{HEXA}                    { total_columns += strlen(yytext); if (print_tokens==1) printf("INTLIT(%s)\n", yytext);};
 {REALLIT}                               { total_columns += strlen(yytext); if (print_tokens==1) printf("REALLIT\n");};
 {RESERVED}                              { total_columns += strlen(yytext); if (print_tokens==1) printf("RESERVED\n");};
