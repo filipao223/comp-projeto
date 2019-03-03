@@ -36,7 +36,7 @@ REALLIT                                 ([1-9]*"."?[0-9]*((e|E)("-"|"+")?[0-9]+)
 
 " "                                     total_columns += strlen(yytext);
 "\t"                                    ;
-"\n"                                    { ++total_lines; total_columns=1; if (semicolon==1){printf("SEMICOLON\n"); semicolon=0;}};
+"\n"                                    { ++total_lines; total_columns=1; if (semicolon==1 && print_tokens==1){printf("SEMICOLON\n"); semicolon=0;}};
 "/*"                                    {  error_line_number = total_lines; error_column_number = total_columns; total_columns+= 2;comment = 1;BEGIN COMMENT;};
 <COMMENT>"\n"                           ++total_lines; total_columns=1;
 <COMMENT>[^["*/"]]*                       total_columns += strlen(yytext);
@@ -105,7 +105,7 @@ else print_tokens = 0;
 yylex();
 if (comment == 1){
     //Check if a semicolon should be printed
-    if (semicolon==1) printf("SEMICOLON\n");
+    if (semicolon==1 && print_tokens==1) printf("SEMICOLON\n");
     printf("Line %d, column %d: unterminated comment\n", error_line_number, error_column_number);
 }
 return 0;
