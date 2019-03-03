@@ -21,10 +21,10 @@
     char current_string[MAX_STR];
 %}
 
-ID                                      ([A-Z|a-z]+([0-9])*_?)*
+ID                                      ([A-Z|a-z]+([0-9])*_?[0-9|A-Z|a-z]*)*
 RESERVED                                (break|default|func|interface|select|case|defer|go|map|struct|chan|else|goto|package|switch|const|fallthrough|if|range|type|continue|for|import|return|var|"++"|"--")
 OCTAL                                   (0)[0-7]+
-HEXA                                    (0x|0X)([0-9]*|[a-f|A-F]*)+
+HEXA                                    (0x|0X)([0-9]+|[a-f|A-F]+)+
 INT                                     ([1-9]*|0)
 REALLIT                                 (([1-9]*\.[0-9]+)*|([1-9]\.?)*)+((e|E)(\-|\+)?[0-9]+)?
 
@@ -103,9 +103,9 @@ if (argc > 1){
 }
 else print_tokens = 0;
 yylex();
-if (comment == 1){
-    //Check if a semicolon should be printed
+//Check if a semicolon should be printed
     if (semicolon==1 && print_tokens==1) printf("SEMICOLON\n");
+if (comment == 1){
     printf("Line %d, column %d: unterminated comment\n", error_line_number, error_column_number);
 }
 return 0;
