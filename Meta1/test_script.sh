@@ -3,8 +3,15 @@
 same=0
 different=0
 
-lex ~/Documents/COMP/Projeto/comp-projeto/Meta1/projeto.l && clang-3.9 ~/Documents/COMP/Projeto/comp-projeto/Meta1/lex.yy.c -o analisador1
-rm lex.yy.c
+project_dir=$(xdg-user-dir DOCUMENTS)/COMP/Projeto/comp-projeto/Meta1
+
+cd $project_dir
+
+lex projeto.l 
+clang-3.9 lex.yy.c -o analisador1
+cp analisador1 $project_dir/CasosTeste/GitLab
+
+cd $project_dir/CasosTeste/GitLab
 
 for filename in ./*.dgo; do
     echo "Testing "$filename"...."
@@ -29,7 +36,6 @@ rm output.txt
 rm analisador1
 
 #Move the .l file to the desktop, rename it and zip it
-project_dir=$(xdg-user-dir DOCUMENTS)/COMP/Projeto/comp-projeto/Meta1
 cp $project_dir/projeto.l $(xdg-user-dir DESKTOP)/gocompiler.l
 cd $(xdg-user-dir DESKTOP)
 zip gocompiler.zip gocompiler.l
