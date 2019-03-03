@@ -21,12 +21,12 @@
     char current_string[MAX_STR];
 %}
 
-ID                                      (([A-Z]*|[a-z]*|[0-9]*)+|_*)+
+ID                                      ([A-Z|a-z]+([0-9])*_?)*
 RESERVED                                (break|default|func|interface|select|case|defer|go|map|struct|chan|else|goto|package|switch|const|fallthrough|if|range|type|continue|for|import|return|var|"++"|"--")
 OCTAL                                   (0)[0-7]+
 HEXA                                    (0x|0X)([0-9]*|[a-f|A-F]*)+
-INT                                     ([0]|[1-9]+)
-REALLIT                                 ([1-9]*"."?[0-9]*((e|E)("-"|"+")?[0-9]+)?)     
+INT                                     ([1-9]*|0)
+REALLIT                                 (([1-9]*\.[0-9]+)*|([1-9]\.?)*)+((e|E)(\-|\+)?[0-9]+)?
 
 %X COMMENT
 %X STRING
@@ -92,7 +92,7 @@ REALLIT                                 ([1-9]*"."?[0-9]*((e|E)("-"|"+")?[0-9]+)
 <ILLEGAL_ESC>.                          ;
 {INT}|{OCTAL}|{HEXA}                    { semicolon=1; total_columns += strlen(yytext); if (print_tokens==1) printf("INTLIT(%s)\n", yytext);};
 {REALLIT}                               { semicolon=1; total_columns += strlen(yytext); if (print_tokens==1) printf("REALLIT(%s)\n", yytext);};
-{RESERVED}                              { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("RESERVED\n");};
+{RESERVED}                              { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("RESERVED(%s)\n", yytext);};
 {ID}                                    { semicolon=1; total_columns += strlen(yytext); if (print_tokens==1) printf("ID(%s)\n", yytext);};
 .                                       printf("Line %d, column %d: illegal character (%s)\n", total_lines, total_columns, yytext); total_columns += strlen(yytext);
 %%
