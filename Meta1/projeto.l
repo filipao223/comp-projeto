@@ -35,7 +35,7 @@ REALLIT                                 (([1-9]*\.[0-9]+)*|([1-9]\.?)*)+((e|E)(\
 %%
 
 " "                                     total_columns += strlen(yytext);
-"\t"                                    ;
+"\t"                                    total_columns+=strlen(yytext);
 "\n"                                    { ++total_lines; total_columns=1; if (semicolon==1 && print_tokens==1){printf("SEMICOLON\n"); semicolon=0;}};
 "/*"                                    {  error_line_number = total_lines; error_column_number = total_columns; total_columns+= 2;comment = 1;BEGIN COMMENT;};
 <COMMENT>"\n"                           ++total_lines; total_columns=1;
@@ -87,10 +87,10 @@ REALLIT                                 (([1-9]*\.[0-9]+)*|([1-9]\.?)*)+((e|E)(\
 <STRING>\\[^n]                          { printf("Line %d, column %d: invalid escape sequence (%s)\n", total_lines, total_columns, yytext); total_columns += strlen(yytext); BEGIN ILLEGAL_ESC;};
 <STRING>"\n"                            { semicolon=0; printf("Line %d, column %d: unterminated string literal\n", total_lines, error_column_number); total_columns=1; ++total_lines; BEGIN 0;};
 <STRING>.                               { semicolon=0; total_columns += strlen(yytext); strcat(current_string, yytext);};
-<ILLEGAL_ESC>\"                         { semicolon = 0; BEGIN 0;};
-<ILLEGAL_ESC>"\n"                       { ++total_lines; BEGIN 0;};
+<ILLEGAL_ESC>\"                         {  BEGIN 0;};
+<ILLEGAL_ESC>"\n"                       { ++total_lines; printf("Line %d, column %d: unterminated string literal\n", total_lines, error_column_number); BEGIN 0;};
 <ILLEGAL_ESC>\\[^n]                     {printf("Line %d, column %d: invalid escape sequence (%s)\n", total_lines, total_columns, yytext); total_columns += strlen(yytext);};
-<ILLEGAL_ESC>.                          ;
+<ILLEGAL_ESC>.                          total_columns+=strlen(yytext);
 {INT}|{OCTAL}|{HEXA}                    { semicolon=1; total_columns += strlen(yytext); if (print_tokens==1) printf("INTLIT(%s)\n", yytext);};
 {REALLIT}                               { semicolon=1; total_columns += strlen(yytext); if (print_tokens==1) printf("REALLIT(%s)\n", yytext);};
 {RESERVED}                              { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("RESERVED(%s)\n", yytext);};
