@@ -1,3 +1,4 @@
+/* João Filipe Sequeira Montenegro Nº2016228672 | Flávio Amaral Fernandes Nº2016240139*/
 %{
     #define MAX_STR 1024
     //If argument -1 is received, set as 1
