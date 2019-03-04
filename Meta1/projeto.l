@@ -26,7 +26,7 @@ RESERVED                                (break|default|func|interface|select|cas
 OCTAL                                   (0)[0-7]+
 HEXA                                    (0x|0X)([0-9]+|[a-f|A-F]+)+
 INT                                     ([1-9]*|0)
-REALLIT                                 (([1-9]*\.[0-9]+)*|([1-9]\.?)*)+((e|E)(\-|\+)?[0-9]+)?
+REALLIT                                 (([1-9]*\.[0-9]+)*|([1-9]\.?)*)+((e|E)(\-|\+)?[1-9][0-9]*)?
 
 %X COMMENT
 %X STRING
@@ -87,10 +87,12 @@ REALLIT                                 (([1-9]*\.[0-9]+)*|([1-9]\.?)*)+((e|E)(\
 <STRING>\\[^n]                          { printf("Line %d, column %d: invalid escape sequence (%s)\n", total_lines, total_columns, yytext); total_columns += strlen(yytext); BEGIN ILLEGAL_ESC;};
 <STRING>"\n"                            { semicolon=0; printf("Line %d, column %d: unterminated string literal\n", total_lines, error_column_number); total_columns=1; ++total_lines; BEGIN 0;};
 <STRING>.                               { semicolon=0; total_columns += strlen(yytext); strcat(current_string, yytext);};
+<STRING><<EOF>>                         { printf("Line %d, column %d: unterminated string literal\n", total_lines, error_column_number); ++total_lines; BEGIN 0;};
 <ILLEGAL_ESC>\"                         {  BEGIN 0;};
-<ILLEGAL_ESC>"\n"                       { ++total_lines; printf("Line %d, column %d: unterminated string literal\n", total_lines, error_column_number); BEGIN 0;};
+<ILLEGAL_ESC>"\n"                       { printf("Line %d, column %d: unterminated string literal\n", total_lines, error_column_number); ++total_lines; BEGIN 0;};
 <ILLEGAL_ESC>\\[^n]                     {printf("Line %d, column %d: invalid escape sequence (%s)\n", total_lines, total_columns, yytext); total_columns += strlen(yytext);};
 <ILLEGAL_ESC>.                          total_columns+=strlen(yytext);
+<ILLEGAL_ESC><<EOF>>                    { printf("Line %d, column %d: unterminated string literal\n", total_lines, error_column_number); ++total_lines; BEGIN 0;};
 {INT}|{OCTAL}|{HEXA}                    { semicolon=1; total_columns += strlen(yytext); if (print_tokens==1) printf("INTLIT(%s)\n", yytext);};
 {REALLIT}                               { semicolon=1; total_columns += strlen(yytext); if (print_tokens==1) printf("REALLIT(%s)\n", yytext);};
 {RESERVED}                              { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("RESERVED(%s)\n", yytext);};
