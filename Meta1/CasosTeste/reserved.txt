@@ -1,0 +1,37 @@
+;;
+__
+package package
+return return
+&&&&
+=
+==
+**
+,,
+//
+====
+>=>=
+>>
+{{
+<=<=
+((
+[[
+<<
+-
+--
+%%
+!=!=
+!!
+||
+||||
+|| ||
++
+++
+}}
+))
+]]
+else else
+for for
+if if
+var var
+int int
+float32 float32
