@@ -62,4 +62,5 @@ dkms.conf
 
 #outputs
 analisador1
+gocompiler
 lex.yy.c
