@@ -1,0 +1,1 @@
+lex gocompiler.l && clang-3.9 lex.yy.c -o gocompiler
