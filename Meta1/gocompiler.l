@@ -26,8 +26,8 @@ ID                                      ([A-Za-z]+([0-9])*_?[0-9A-Za-z]*)*
 RESERVED                                (break|default|func|interface|select|case|defer|go|map|struct|chan|else|goto|package|switch|const|fallthrough|if|range|type|continue|for|import|return|var|"++"|"--")
 OCTAL                                   (0)[0-7]+
 HEXA                                    (0x|0X)([0-9]+|[a-f|A-F]+)+
-INT                                     ([1-9]*|0)
-REALLIT                                 (([1-9]*\.[0-9]+)*|([1-9]\.?)*)+((e|E)(\-|\+)?[1-9][0-9]*)?
+INT                                     0*([1-9]*|0)
+REALLIT                                 (([1-9]*\.[0-9]+)*|([1-9]\.?)*)+((e|E)(\-|\+)?[0-9]+)?
 
 %X COMMENT
 %X STRING

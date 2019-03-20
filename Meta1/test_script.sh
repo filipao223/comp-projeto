@@ -3,7 +3,7 @@
 same=0
 different=0
 
-project_dir=$(xdg-user-dir DOCUMENTS)/COMP/Projeto/comp-projeto/Meta1
+project_dir=$(xdg-user-dir DOCUMENTS)/3ºAno/COMP/Projeto_Completo/comp-projeto/Meta1
 
 cd $project_dir
 
