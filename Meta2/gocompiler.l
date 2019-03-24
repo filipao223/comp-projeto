@@ -80,7 +80,7 @@ REALLIT                                 (([0-9]*\.[0-9]+)|([0-9]+\.)|([1-9]\.)|[
 "int"                                   { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("INT\n");return INT;};
 "float32"                               { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("FLOAT32\n");return FLOAT32;};
 "bool"                                  { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("BOOL\n");return BOOL;};
-"string"                                { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("STRING\n");return STRING;};
+"string"                                { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("STRING\n");return STRINGVAR;};
 "fmt.Println"                           { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("PRINT\n");return PRINT;};
 "strconv.Atoi"                          { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("PARSEINT\n");return PARSEINT;};
 "func"                                  { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("FUNC\n");return FUNC;};
