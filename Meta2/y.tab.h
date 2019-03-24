@@ -34,7 +34,7 @@
 # define YY_YY_Y_TAB_H_INCLUDED
 /* Debug traces.  */
 #ifndef YYDEBUG
-# define YYDEBUG 0
+# define YYDEBUG 1
 #endif
 #if YYDEBUG
 extern int yydebug;
@@ -48,7 +48,7 @@ extern int yydebug;
     INTLIT = 258,
     REALLIT = 259,
     ID = 260,
-    FuncInvocation = 261,
+    FUNC = 261,
     LPAR = 262,
     RPAR = 263,
     OR = 264,
@@ -80,21 +80,20 @@ extern int yydebug;
     INT = 290,
     FLOAT32 = 291,
     BOOL = 292,
-    STRING = 293,
+    STRINGVAR = 293,
     PRINT = 294,
     PARSEINT = 295,
-    FUNC = 296,
-    CMDARGS = 297,
-    RESERVED = 298,
-    LSQ = 299,
-    LBRACE = 300
+    CMDARGS = 296,
+    RESERVED = 297,
+    LSQ = 298,
+    LBRACE = 299
   };
 #endif
 /* Tokens.  */
 #define INTLIT 258
 #define REALLIT 259
 #define ID 260
-#define FuncInvocation 261
+#define FUNC 261
 #define LPAR 262
 #define RPAR 263
 #define OR 264
@@ -126,14 +125,13 @@ extern int yydebug;
 #define INT 290
 #define FLOAT32 291
 #define BOOL 292
-#define STRING 293
+#define STRINGVAR 293
 #define PRINT 294
 #define PARSEINT 295
-#define FUNC 296
-#define CMDARGS 297
-#define RESERVED 298
-#define LSQ 299
-#define LBRACE 300
+#define CMDARGS 296
+#define RESERVED 297
+#define LSQ 298
+#define LBRACE 299
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
