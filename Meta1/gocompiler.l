@@ -22,12 +22,12 @@
     char current_string[MAX_STR];
 %}
 
-ID                                      ([A-Za-z]+([0-9])*_?[0-9A-Za-z]*)*
+ID                                      ([A-Za-z_][0-9A-Za-z_]*)
 RESERVED                                (break|default|func|interface|select|case|defer|go|map|struct|chan|else|goto|package|switch|const|fallthrough|if|range|type|continue|for|import|return|var|"++"|"--")
 OCTAL                                   (0)[0-7]+
 HEXA                                    (0x|0X)([0-9]+|[a-fA-F]+)+
 INT                                     0*([1-9]*|0)
-REALLIT                                 (([1-9]*\.[0-9]+)*|([1-9]\.?)*)+((e|E)(\-|\+)?[0-9]+)?
+REALLIT                                 (([0-9]*\.[0-9]+)|([0-9]+\.)|([1-9]\.)?|[1-9]+)?((e|E)(\-|\+)?[0-9]+)?
 
 %X COMMENT
 %X STRING
