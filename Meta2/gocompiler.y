@@ -27,6 +27,45 @@
 %token RPAR
 %token OR
 %token AND
+%token LT
+%token GT
+%token EQ
+%token NE
+%token LE
+%token GE
+%token SEMICOLON
+%token BLANKID
+%token PACKAGE
+%token RETURN
+%token ASSIGN
+%token STAR
+%token COMMA
+%token DIV
+%token MINUS
+%token MOD
+%token NOT
+%token PLUS
+%token RBRACE
+%token RSQ
+%token ELSE
+%token FOR
+%token IF
+%token VAR
+%token INT
+%token FLOAT32
+%token BOOL
+%token STRING
+%token PRINT
+%token PARSEINT
+%token FUNC
+%token CMDARGS
+%token RESERVED
+%token ID
+%token LSQ
+%token LBRACE
+
+%left OR
+%right AND
 
 %%
 
@@ -40,7 +79,14 @@ start: Expr
 
 Expr: Expr OR Expr      
     | Expr AND Expr
-    | INTLIT
+    | LPAR Expr RPAR
+    | INTLIT | REALLIT | ID | FuncInvocation
+    | Expr LT Expr
+    | Expr GT Expr
+    | Expr EQ Expr
+    | Expr NE Expr
+    | Expr LE Expr
+    | Expr GE Expr
     ;
 
 %%   
