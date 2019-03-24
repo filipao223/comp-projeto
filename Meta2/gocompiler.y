@@ -22,7 +22,7 @@
 %token INTLIT
 %token REALLIT
 %token ID
-%token FuncInvocation
+%token FUNC
 %token LPAR
 %token RPAR
 %token OR
@@ -54,18 +54,15 @@
 %token INT
 %token FLOAT32
 %token BOOL
-%token STRING
+%token STRINGVAR
 %token PRINT
 %token PARSEINT
-%token FUNC
 %token CMDARGS
 %token RESERVED
-%token ID
 %token LSQ
 %token LBRACE
 
-%left OR
-%right AND
+%left AND OR LT GT EQ NE LE GE LPAR RPAR
 
 %%
 
@@ -74,19 +71,27 @@ compiler: start
     ;
 
 start: Expr
-    |
+    | FuncInvocation
+    ;
+
+FuncInvocation: ID LPAR RPAR
+    | ID LPAR FuncInvocationExpr RPAR
+    ;
+
+FuncInvocationExpr: Expr
+    | Expr COMMA FuncInvocationExpr
     ;
 
 Expr: Expr OR Expr      
     | Expr AND Expr
     | LPAR Expr RPAR
-    | INTLIT | REALLIT | ID | FuncInvocation
     | Expr LT Expr
     | Expr GT Expr
     | Expr EQ Expr
     | Expr NE Expr
     | Expr LE Expr
     | Expr GE Expr
+    | INTLIT | REALLIT | ID | FuncInvocation
     ;
 
 %%   
