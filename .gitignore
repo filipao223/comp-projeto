@@ -3,6 +3,7 @@
 
 #Output files
 *.out
+*.output
 
 #Enunciados
 *.pdf
