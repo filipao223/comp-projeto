@@ -52,7 +52,42 @@ extern int yydebug;
     LPAR = 262,
     RPAR = 263,
     OR = 264,
-    AND = 265
+    AND = 265,
+    LT = 266,
+    GT = 267,
+    EQ = 268,
+    NE = 269,
+    LE = 270,
+    GE = 271,
+    SEMICOLON = 272,
+    BLANKID = 273,
+    PACKAGE = 274,
+    RETURN = 275,
+    ASSIGN = 276,
+    STAR = 277,
+    COMMA = 278,
+    DIV = 279,
+    MINUS = 280,
+    MOD = 281,
+    NOT = 282,
+    PLUS = 283,
+    RBRACE = 284,
+    RSQ = 285,
+    ELSE = 286,
+    FOR = 287,
+    IF = 288,
+    VAR = 289,
+    INT = 290,
+    FLOAT32 = 291,
+    BOOL = 292,
+    STRING = 293,
+    PRINT = 294,
+    PARSEINT = 295,
+    FUNC = 296,
+    CMDARGS = 297,
+    RESERVED = 298,
+    LSQ = 299,
+    LBRACE = 300
   };
 #endif
 /* Tokens.  */
@@ -64,6 +99,41 @@ extern int yydebug;
 #define RPAR 263
 #define OR 264
 #define AND 265
+#define LT 266
+#define GT 267
+#define EQ 268
+#define NE 269
+#define LE 270
+#define GE 271
+#define SEMICOLON 272
+#define BLANKID 273
+#define PACKAGE 274
+#define RETURN 275
+#define ASSIGN 276
+#define STAR 277
+#define COMMA 278
+#define DIV 279
+#define MINUS 280
+#define MOD 281
+#define NOT 282
+#define PLUS 283
+#define RBRACE 284
+#define RSQ 285
+#define ELSE 286
+#define FOR 287
+#define IF 288
+#define VAR 289
+#define INT 290
+#define FLOAT32 291
+#define BOOL 292
+#define STRING 293
+#define PRINT 294
+#define PARSEINT 295
+#define FUNC 296
+#define CMDARGS 297
+#define RESERVED 298
+#define LSQ 299
+#define LBRACE 300
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
