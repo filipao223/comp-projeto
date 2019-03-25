@@ -8,6 +8,8 @@
     #define NSYMS 100
     #define YYDEBUG 1
 
+    int yydebug=1;
+
     //symtab tab[NSYMS];
 
     //symtab *symlook(char *varname);
@@ -173,6 +175,10 @@ Expr: Expr OR Expr
 
 
 int main(int argc, char** argv) {
+    int yydebug;
+    #if YYDEBUG
+        yydebug = 1;
+    #endif
     int lex_only = 0;
     if (argc!=1){
         if (strcmp(argv[1], "-l")==0) lex_only = 1;
