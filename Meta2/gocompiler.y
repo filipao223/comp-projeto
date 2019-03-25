@@ -66,17 +66,18 @@
 %left AND OR LT GT EQ NE LE GE LPAR RPAR
 %left FUNC VAR
 
+
 %%
 
 Program: PACKAGE ID SEMICOLON Declarations;
 
-Declarations: DeclarationsRep; 
+Declarations: 
+    | DeclarationsRep; 
 
-DeclarationsRep:
+DeclarationsRep: DeclarationsRep VarDeclaration SEMICOLON
+    | DeclarationsRep FuncDeclaration SEMICOLON
     | VarDeclaration SEMICOLON
     | FuncDeclaration SEMICOLON
-    | DeclarationsRep VarDeclaration SEMICOLON
-    | DeclarationsRep FuncDeclaration SEMICOLON
     ;
 
 VarDeclaration: VAR VarSpec
