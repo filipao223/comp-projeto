@@ -87,7 +87,7 @@ REALLIT                                 (([0-9]*\.[0-9]+)|([0-9]+\.)|([1-9]\.)|[
 "os.Args"                               { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("CMDARGS\n");return CMDARGS;};
 \"                                      { error_column_number = total_columns; semicolon=0; ++total_columns; current_string[0] = '\0'; BEGIN STRING;};
 <STRING>\\(\\|n|f|r|t|(\"))             { semicolon=0; total_columns+= strlen(yytext); strcat(current_string, yytext);};
-<STRING>\"                              { semicolon=1; ++total_columns; if (print_tokens==1) printf("STRLIT(\"%s\")\n", current_string); BEGIN 0;};
+<STRING>\"                              { semicolon=1; ++total_columns; if (print_tokens==1) printf("STRLIT(\"%s\")\n", current_string); BEGIN 0; return STRLIT;};
 <STRING>\\"\t"+|\\" "+                  {printf("Line %d, column %d: invalid escape sequence (%c)\n", total_lines, total_columns, yytext[0]); total_columns += strlen(yytext); BEGIN ILLEGAL_ESC;};
 <STRING>\\[^"\n"]|\\                    { semicolon=0; printf("Line %d, column %d: invalid escape sequence (%s)\n", total_lines, total_columns, yytext); total_columns += strlen(yytext); BEGIN ILLEGAL_ESC;};
 <STRING>"\n"|"\r"|"\r\n"                { semicolon=0; printf("Line %d, column %d: unterminated string literal\n", total_lines, error_column_number); total_columns=1; ++total_lines; BEGIN 0;};

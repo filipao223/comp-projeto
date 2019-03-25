@@ -61,30 +61,11 @@
 %token RESERVED
 %token LSQ
 %token LBRACE
+%token STRLIT
 
 %left AND OR LT GT EQ NE LE GE LPAR RPAR
 
 %%
-
-FuncInvocation: ID LPAR RPAR
-    | ID LPAR FuncInvocationExpr RPAR
-    ;
-
-FuncInvocationExpr: Expr
-    | Expr COMMA FuncInvocationExpr
-    ;
-
-Expr: Expr OR Expr      
-    | Expr AND Expr
-    | LPAR Expr RPAR
-    | Expr LT Expr
-    | Expr GT Expr
-    | Expr EQ Expr
-    | Expr NE Expr
-    | Expr LE Expr
-    | Expr GE Expr
-    | INTLIT | REALLIT | ID | FuncInvocation
-    ;
 
 Program: PACKAGE ID SEMICOLON Declarations;
 
@@ -153,6 +134,26 @@ ElseCond:
     ;
 
 ParseArgs: ID COMMA BLANKID ASSIGN PARSEINT LPAR CMDARGS LSQ Expr RSQ RPAR;
+
+FuncInvocation: ID LPAR RPAR
+    | ID LPAR FuncInvocationExpr RPAR
+    ;
+
+FuncInvocationExpr: Expr
+    | Expr COMMA FuncInvocationExpr
+    ;
+
+Expr: Expr OR Expr      
+    | Expr AND Expr
+    | LPAR Expr RPAR
+    | Expr LT Expr
+    | Expr GT Expr
+    | Expr EQ Expr
+    | Expr NE Expr
+    | Expr LE Expr
+    | Expr GE Expr
+    | INTLIT | REALLIT | ID | FuncInvocation
+    ;
 
 %%   
 
