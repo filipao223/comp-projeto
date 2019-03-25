@@ -15,7 +15,8 @@
     //void var_list();
 
     int yylex(void);
-    void yyerror (const char *s);
+    extern int print_tokens;
+    extern void yyerror(const char *s);
 %}
 
 //Tokens
@@ -130,6 +131,7 @@ Statement: ID ASSIGN Expr
     | ParseArgs
     | PRINT LPAR Expr RPAR
     | PRINT LPAR STRLIT RPAR
+    | error
     ;
 
 StatementRep:
@@ -139,10 +141,13 @@ ElseCond:
     | ELSE LBRACE StatementRep RBRACE
     ;
 
-ParseArgs: ID COMMA BLANKID ASSIGN PARSEINT LPAR CMDARGS LSQ Expr RSQ RPAR;
+ParseArgs: ID COMMA BLANKID ASSIGN PARSEINT LPAR CMDARGS LSQ Expr RSQ RPAR
+    | ID COMMA BLANKID ASSIGN PARSEINT LPAR error RPAR
+    ;
 
 FuncInvocation: ID LPAR RPAR
     | ID LPAR FuncInvocationExpr RPAR
+    | ID LPAR error RPAR
     ;
 
 FuncInvocationExpr: Expr
@@ -159,15 +164,23 @@ Expr: Expr OR Expr
     | Expr LE Expr
     | Expr GE Expr
     | INTLIT | REALLIT | ID | FuncInvocation
+    | LPAR error RPAR
     ;
 
 %%   
 
+
+
+
 int main(int argc, char** argv) {
-    yydebug=0;
+    int lex_only = 0;
     if (argc!=1){
-        if (strcmp(argv[1], "-d")==0) yydebug = 1;
+        if (strcmp(argv[1], "-l")==0) lex_only = 1;
     }
-    yyparse();
+    if (lex_only==1) while(yylex()){} //Print only lex output
+    else{
+        print_tokens=0; //Dont print lex output | Set lex file print_tokens flag as 0
+        yyparse();
+    }
     return 0;
 } 

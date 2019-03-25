@@ -4,7 +4,7 @@
 
     #define MAX_STR 1024
     //If argument -1 is received, set as 1
-    int print_tokens;
+    int print_tokens=1;
 
     //Line and column counter
     int total_lines = 1;
@@ -125,6 +125,6 @@ int yywrap()
 return 1;
 }   
 
-void yyerror (const char *s) { 
-     printf ("%s: %s\n", s, yytext);
+void yyerror(const char *s){
+    printf("Line %d, column %d: %s: %s\n",  total_lines, (int)(total_columns-strlen(yytext)), s, yytext);
 }
