@@ -62,7 +62,9 @@
 %token LSQ
 %token LBRACE
 
-%left AND OR LT GT EQ NE LE GE LPAR RPAR
+%left AND OR LT GT EQ NE LE GE
+%left LPAR
+%right RPAR
 
 %%
 
@@ -72,14 +74,36 @@ compiler: start
 
 start: Expr
     | FuncInvocation
+    | Statement
     ;
 
-FuncInvocation: ID LPAR RPAR
-    | ID LPAR FuncInvocationExpr RPAR
+Statement: ID ASSIGN Expr
+    | LBRACE Statement SEMICOLON RBRACE
+    | IF Expr LBRACE RBRACE StatementOpen
+    | IF Expr LBRACE Statement SEMICOLON RBRACE StatementOpen
+    | FOR Expr LBRACE Statement SEMICOLON RBRACE
+    | FOR Expr LBRACE RBRACE
+    | FOR LBRACE Statement SEMICOLON RBRACE
+    | FOR LBRACE RBRACE
+    | FuncInvocation | ParseArgs
+    | PRINT LPAR Expr RPAR
+    | RETURN Expr
+    | RETURN
+    | 
     ;
 
-FuncInvocationExpr: Expr
-    | Expr COMMA FuncInvocationExpr
+StatementOpen: ELSE LBRACE ELSE LBRACE Statement SEMICOLON RBRACE Statement
+    ;
+
+ParseArgs: ID COMMA BLANKID ASSIGN PARSEINT LPAR CMDARGS LSQ Expr RSQ RPAR
+    ;
+
+FuncInvocation: ID LPAR Expr FuncInvocationExpr
+    | ID LPAR RPAR
+    ;
+
+FuncInvocationExpr: Expr COMMA FuncInvocationExpr
+    | RPAR
     ;
 
 Expr: Expr OR Expr      
