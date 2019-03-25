@@ -89,7 +89,7 @@ VarSpecRep:
 Type: INT
     | FLOAT32
     | BOOL
-    | string
+    | STRLIT
     ;
 
 FuncDeclaration: FUNC ID LPAR RPAR Type FuncBody

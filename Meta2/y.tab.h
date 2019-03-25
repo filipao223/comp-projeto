@@ -86,7 +86,8 @@ extern int yydebug;
     CMDARGS = 296,
     RESERVED = 297,
     LSQ = 298,
-    LBRACE = 299
+    LBRACE = 299,
+    STRLIT = 300
   };
 #endif
 /* Tokens.  */
@@ -132,6 +133,7 @@ extern int yydebug;
 #define RESERVED 297
 #define LSQ 298
 #define LBRACE 299
+#define STRLIT 300
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
