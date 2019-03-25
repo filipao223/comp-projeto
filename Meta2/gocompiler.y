@@ -62,48 +62,16 @@
 %token LSQ
 %token LBRACE
 
-%left AND OR LT GT EQ NE LE GE
-%left LPAR
-%right RPAR
+%left AND OR LT GT EQ NE LE GE LPAR RPAR
 
 %%
 
-compiler: start
-    | compiler start;
+FuncInvocation: ID LPAR RPAR
+    | ID LPAR FuncInvocationExpr RPAR
     ;
 
-start: Expr
-    | FuncInvocation
-    | Statement
-    ;
-
-Statement: ID ASSIGN Expr
-    | LBRACE Statement SEMICOLON RBRACE
-    | IF Expr LBRACE RBRACE StatementOpen
-    | IF Expr LBRACE Statement SEMICOLON RBRACE StatementOpen
-    | FOR Expr LBRACE Statement SEMICOLON RBRACE
-    | FOR Expr LBRACE RBRACE
-    | FOR LBRACE Statement SEMICOLON RBRACE
-    | FOR LBRACE RBRACE
-    | FuncInvocation | ParseArgs
-    | PRINT LPAR Expr RPAR
-    | RETURN Expr
-    | RETURN
-    | 
-    ;
-
-StatementOpen: ELSE LBRACE ELSE LBRACE Statement SEMICOLON RBRACE Statement
-    ;
-
-ParseArgs: ID COMMA BLANKID ASSIGN PARSEINT LPAR CMDARGS LSQ Expr RSQ RPAR
-    ;
-
-FuncInvocation: ID LPAR Expr FuncInvocationExpr
-    | ID LPAR RPAR
-    ;
-
-FuncInvocationExpr: Expr COMMA FuncInvocationExpr
-    | RPAR
+FuncInvocationExpr: Expr
+    | Expr COMMA FuncInvocationExpr
     ;
 
 Expr: Expr OR Expr      
@@ -117,6 +85,74 @@ Expr: Expr OR Expr
     | Expr GE Expr
     | INTLIT | REALLIT | ID | FuncInvocation
     ;
+
+Program: PACKAGE ID SEMICOLON Declarations;
+
+Declarations: DeclarationsRep; 
+
+DeclarationsRep:
+    | DeclarationsRep VarDeclaration SEMICOLON
+    | DeclarationsRep FuncDeclaration SEMICOLON
+    ;
+
+VarDeclaration: VAR VarSpec
+    | VAR LPAR VarSpec SEMICOLON RPAR
+    ;
+
+VarSpec: ID VarSpecRep Type;
+
+VarSpecRep: 
+    | VarSpecRep ID COMMA
+    ;
+
+Type: INT
+    | FLOAT32
+    | BOOL
+    | string
+    ;
+
+FuncDeclaration: FUNC ID LPAR RPAR Type FuncBody
+    | FUNC ID LPAR Parameters RPAR FuncBody
+    | FUNC ID LPAR Parameters RPAR Type FuncBody
+    | FUNC ID LPAR RPAR FuncBody
+    ;
+
+Parameters: ID Type ParametersRep;
+
+ParametersRep:
+    | ParametersRep COMMA ID Type
+    ;
+
+FuncBody: LBRACE VarsAndStatements RBRACE
+    | LBRACE RBRACE
+    ;
+
+VarsAndStatements: VarsAndStatements SEMICOLON
+    | VarsAndStatements VarDeclaration SEMICOLON
+    | VarsAndStatements Statement SEMICOLON
+    ;
+
+Statement: ID ASSIGN Expr
+    | LBRACE StatementRep RBRACE
+    | IF Expr LBRACE StatementRep RBRACE ElseCond
+    | FOR LBRACE StatementRep RBRACE
+    | FOR Expr LBRACE StatementRep RBRACE
+    | RETURN Expr
+    | RETURN
+    | FuncInvocation
+    | ParseArgs
+    | PRINT LPAR Expr RPAR
+    | PRINT LPAR STRLIT RPAR
+    ;
+
+StatementRep:
+    | StatementRep Statement SEMICOLON;
+
+ElseCond:
+    | ELSE LBRACE StatementRep RBRACE
+    ;
+
+ParseArgs: ID COMMA BLANKID ASSIGN PARSEINT LPAR CMDARGS LSQ Expr RSQ RPAR;
 
 %%   
 
