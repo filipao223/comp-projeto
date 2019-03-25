@@ -64,6 +64,7 @@
 %token STRLIT
 
 %left AND OR LT GT EQ NE LE GE LPAR RPAR
+%left FUNC VAR
 
 %%
 
@@ -72,6 +73,8 @@ Program: PACKAGE ID SEMICOLON Declarations;
 Declarations: DeclarationsRep; 
 
 DeclarationsRep:
+    | VarDeclaration SEMICOLON
+    | FuncDeclaration SEMICOLON
     | DeclarationsRep VarDeclaration SEMICOLON
     | DeclarationsRep FuncDeclaration SEMICOLON
     ;
@@ -108,7 +111,9 @@ FuncBody: LBRACE VarsAndStatements RBRACE
     | LBRACE RBRACE
     ;
 
-VarsAndStatements: VarsAndStatements SEMICOLON
+VarsAndStatements: VarDeclaration SEMICOLON
+    | Statement SEMICOLON
+    | VarsAndStatements SEMICOLON
     | VarsAndStatements VarDeclaration SEMICOLON
     | VarsAndStatements Statement SEMICOLON
     ;
