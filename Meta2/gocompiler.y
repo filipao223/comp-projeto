@@ -8,7 +8,7 @@
     #define NSYMS 100
     #define YYDEBUG 1
 
-    int yydebug=1;
+    int yydebug=0;
 
     //symtab tab[NSYMS];
 
@@ -66,9 +66,10 @@
 %token LBRACE
 %token STRLIT
 
-%left AND OR LT GT EQ NE LE GE LPAR RPAR
-%left FUNC VAR
-
+%left AND OR LT GT EQ NE LE GE LPAR RPAR 
+%left FUNC VAR STAR DIV
+%right PLUS MINUS
+%right NOT
 
 %%
 
@@ -90,7 +91,7 @@ VarDeclaration: VAR VarSpec
 VarSpec: ID VarSpecRep Type;
 
 VarSpecRep: 
-    | VarSpecRep ID COMMA
+    | VarSpecRep COMMA ID
     ;
 
 Type: INT
@@ -159,12 +160,18 @@ FuncInvocationExpr: Expr
 Expr: Expr OR Expr      
     | Expr AND Expr
     | LPAR Expr RPAR
+    | Expr PLUS Expr
+    | Expr MINUS Expr
+    | Expr STAR Expr
+    | Expr DIV Expr
     | Expr LT Expr
     | Expr GT Expr
     | Expr EQ Expr
     | Expr NE Expr
     | Expr LE Expr
     | Expr GE Expr
+    | NOT Expr
+    | MINUS Expr
     | INTLIT | REALLIT | ID | FuncInvocation
     | LPAR error RPAR
     ;
