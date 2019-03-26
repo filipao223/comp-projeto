@@ -39,7 +39,7 @@ REALLIT                                 (([0-9]*\.[0-9]+)|([0-9]+\.)|([1-9]\.)|[
 
 " "                                     total_columns += strlen(yytext);
 "\t"                                    total_columns+=strlen(yytext);
-"\n"                                    { ++total_lines; total_columns=1; if (semicolon==1 && print_tokens==1){printf("SEMICOLON\n"); semicolon=0;} if (semicolon==1) return SEMICOLON;};
+"\n"                                    { ++total_lines; total_columns=1; if (semicolon==1 && print_tokens==1){printf("SEMICOLON\n"); semicolon=0;} else if (semicolon==1){ semicolon=0; return SEMICOLON;}};
 "/*"                                    {  error_line_number = total_lines; error_column_number = total_columns; total_columns+= 2;comment = 1;BEGIN COMMENT;};
 <COMMENT>"\n"                           ++total_lines; total_columns=1;
 <COMMENT>[^["*/"]]*                       total_columns += strlen(yytext);
