@@ -101,7 +101,7 @@ REALLIT                                 (([0-9]*\.[0-9]+)|([0-9]+\.)|([1-9]\.)|[
 <ILLEGAL_ESC><<EOF>>                    { semicolon=0; printf("Line %d, column %d: unterminated string literal\n", total_lines, error_column_number); ++total_lines; BEGIN 0;};
 {INT}|{OCTAL}|{HEXA}                    { semicolon=1; total_columns += strlen(yytext); if (print_tokens==1) printf("INTLIT(%s)\n", yytext); return INTLIT;};
 {REALLIT}                               { semicolon=1; total_columns += strlen(yytext); if (print_tokens==1) printf("REALLIT(%s)\n", yytext); return REALLIT;};
-{RESERVED}                              { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("RESERVED(%s)\n", yytext);return RESERVED;};
+{RESERVED}                              { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("RESERVED(%s)\n", yytext); yylval.str = strdup(yytext); return RESERVED;};
 {ID}                                    { semicolon=1; total_columns += strlen(yytext); if (print_tokens==1) printf("ID(%s)\n", yytext); return ID;};
 .                                       printf("Line %d, column %d: illegal character (%s)\n", total_lines, total_columns, yytext); total_columns += strlen(yytext);
 %%

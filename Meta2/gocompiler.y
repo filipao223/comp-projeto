@@ -61,15 +61,23 @@
 %token PRINT
 %token PARSEINT
 %token CMDARGS
-%token RESERVED
+%token <str> RESERVED
 %token LSQ
 %token LBRACE
 %token STRLIT
 
-%left AND OR LT GT EQ NE LE GE LPAR RPAR 
-%left FUNC VAR STAR DIV
-%right PLUS MINUS
+%left OR
+%left AND
 %right NOT
+%left LT GT EQ NE LE GE 
+%left FUNC VAR
+%right PLUS MINUS
+%left STAR DIV MOD
+%left LPAR RPAR
+
+%union{
+    char *str;
+}
 
 %%
 
@@ -97,7 +105,7 @@ VarSpecRep:
 Type: INT
     | FLOAT32
     | BOOL
-    | STRLIT
+    | STRINGVAR
     ;
 
 FuncDeclaration: FUNC ID LPAR RPAR Type FuncBody
@@ -127,7 +135,9 @@ Statement: ID ASSIGN Expr
     | LBRACE StatementRep RBRACE
     | IF Expr LBRACE StatementRep RBRACE ElseCond
     | FOR LBRACE StatementRep RBRACE
+    | FOR LBRACE StatementRep RESERVED SEMICOLON RBRACE
     | FOR Expr LBRACE StatementRep RBRACE
+    | FOR Expr LBRACE StatementRep RESERVED SEMICOLON RBRACE
     | RETURN Expr
     | RETURN
     | FuncInvocation
@@ -159,20 +169,22 @@ FuncInvocationExpr: Expr
 
 Expr: Expr OR Expr      
     | Expr AND Expr
-    | LPAR Expr RPAR
-    | Expr PLUS Expr
-    | Expr MINUS Expr
-    | Expr STAR Expr
-    | Expr DIV Expr
+    | NOT Expr
     | Expr LT Expr
     | Expr GT Expr
     | Expr EQ Expr
     | Expr NE Expr
     | Expr LE Expr
     | Expr GE Expr
-    | NOT Expr
+    | Expr PLUS Expr
+    | Expr MINUS Expr
+    | Expr STAR Expr
+    | Expr DIV Expr
+    | Expr MOD Expr
+    | PLUS Expr
     | MINUS Expr
     | INTLIT | REALLIT | ID | FuncInvocation
+    | LPAR Expr RPAR
     | LPAR error RPAR
     ;
 
