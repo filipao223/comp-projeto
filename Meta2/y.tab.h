@@ -140,11 +140,12 @@ extern int yydebug;
 
 union YYSTYPE
 {
-#line 78 "gocompiler.y" /* yacc.c:1909  */
+#line 108 "gocompiler.y" /* yacc.c:1909  */
 
     char *str;
+    ast_node* node;
 
-#line 148 "y.tab.h" /* yacc.c:1909  */
+#line 149 "y.tab.h" /* yacc.c:1909  */
 };
 
 typedef union YYSTYPE YYSTYPE;
