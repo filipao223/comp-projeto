@@ -38,8 +38,8 @@
     } ast_node;
 
     //AST functions
-    ast_node *create_new_node(char name[], char id[], ast_node *parent);
-    void add_ast_node(ast_node *current, ast_node *new_node);
+    ast_node *create_new_node(char name[], char id[]);
+    ast_node *add_ast_node(ast_node *parent, ast_node *child);
     void print_ast_tree(ast_node *root, int level);
     void free_ast_tree(ast_node* root);
 
@@ -52,7 +52,7 @@
 //Tokens
 %token INTLIT
 %token REALLIT
-%token ID
+%token <str> ID
 %token FUNC
 %token LPAR
 %token RPAR
@@ -103,37 +103,39 @@
 %left STAR DIV MOD
 %left LPAR RPAR
 
-%type <node> Expr Program Declarations DeclarationsRep VarDeclaration VarSpec VarSpecRep Type FuncDeclaration Parameters ParametersRep
+%type <node> Expr Program Declarations DeclarationsRep VarDeclaration VarSpec VarSpecRep Type FuncDeclaration Parameters ParametersRep FuncBody
+%type <node> VarsAndStatements Statement StatementRep ElseCond ParseArgs FuncInvocation FuncInvocationExpr
 
 %union{
     char *str;
-    ast_node* node;
+    struct ast_node *node;
 }
 
 %%
 
-Program: PACKAGE ID SEMICOLON Declarations                                  {add_ast_node(root, $4);}
+Program: PACKAGE ID SEMICOLON Declarations                       {root = add_ast_node(create_new_node("Program", NULL), $4);}
     ;
 
-Declarations: 
-    | DeclarationsRep                                                       {$$ = $1;}
+Declarations:                           {$$ = NULL;}
+    | DeclarationsRep                   {$$ = $1;}                            
     ;
 
-DeclarationsRep: DeclarationsRep VarDeclaration SEMICOLON                   {$$ = add_ast_node($$, $2);}
-    | DeclarationsRep FuncDeclaration SEMICOLON                             {$$ = add_ast_node($$, $2);}
-    | VarDeclaration SEMICOLON                                              {$$ = add_ast_node($$, $1);}
-    | FuncDeclaration SEMICOLON                                             {$$ = add_ast_node($$, $1);}
+DeclarationsRep: DeclarationsRep VarDeclaration SEMICOLON    {$$ = add_ast_node(create_new_node("VarDecl", NULL), $1);}               
+    | DeclarationsRep FuncDeclaration SEMICOLON              {$$ = add_ast_node(create_new_node("FuncDecl", NULL), $1);}               
+    | VarDeclaration SEMICOLON                               {$$ = $1;}               
+    | FuncDeclaration SEMICOLON                              {$$ = $1;}               
     ;
 
-VarDeclaration: VAR VarSpec
-    | VAR LPAR VarSpec SEMICOLON RPAR
+VarDeclaration: VAR VarSpec                                  {$$ = $2;}
+    | VAR LPAR VarSpec SEMICOLON RPAR                        {$$ = $3;}
     ;
 
-VarSpec: ID VarSpecRep Type;
-
-VarSpecRep: 
-    | VarSpecRep COMMA ID
+VarSpec: ID VarSpecRep Type                                {$$ = add_ast_node(create_new_node("ID", "test"), $2);}
     ;
+
+VarSpecRep:                                                 {$$ = create_new_node("temp", NULL);}
+    | VarSpecRep COMMA ID                                   {$$ = add_ast_node(create_new_node("ID", "another"), $1);}
+    ; 
 
 Type: INT
     | FLOAT32
@@ -141,10 +143,23 @@ Type: INT
     | STRINGVAR
     ;
 
-FuncDeclaration: FUNC ID LPAR RPAR Type FuncBody
-    | FUNC ID LPAR Parameters RPAR FuncBody
-    | FUNC ID LPAR Parameters RPAR Type FuncBody
-    | FUNC ID LPAR RPAR FuncBody
+FuncDeclaration: FUNC ID LPAR RPAR Type FuncBody            { 
+                                                                ast_node* new_node = create_new_node("FuncDecl", NULL); 
+                                                                add_ast_node(new_node, add_ast_node(create_new_node("FuncHeader", NULL), create_new_node("ID", $2)));
+                                                                add_ast_node(new_node, $6);
+                                                                $$ = new_node;
+                                                            }
+    | FUNC ID LPAR Parameters RPAR FuncBody                 {$$ = add_ast_node(create_new_node("FuncDecl", NULL), $6);}
+    | FUNC ID LPAR Parameters RPAR Type FuncBody            {$$ = add_ast_node(create_new_node("FuncDecl", NULL), $6);}
+    | FUNC ID LPAR RPAR FuncBody                            { 
+                                                                ast_node* new_node = create_new_node("FuncDecl", NULL);
+                                                                ast_node* funcHeader =  create_new_node("FuncHeader", NULL);
+                                                                add_ast_node(funcHeader, create_new_node("ID", $2));
+                                                                add_ast_node(funcHeader, create_new_node("FuncParam", NULL));
+                                                                add_ast_node(new_node, funcHeader);
+                                                                add_ast_node(new_node, $5);
+                                                                $$ = new_node;
+                                                            }
     ;
 
 Parameters: ID Type ParametersRep;
@@ -153,12 +168,12 @@ ParametersRep:
     | ParametersRep COMMA ID Type
     ;
 
-FuncBody: LBRACE VarsAndStatements RBRACE
-    | LBRACE RBRACE
+FuncBody: LBRACE VarsAndStatements RBRACE                   {$$ = add_ast_node(create_new_node("FuncBody", NULL), $2);}
+    | LBRACE RBRACE                                         {$$ = create_new_node("FuncBody", NULL);}
     ;
 
-VarsAndStatements: VarDeclaration SEMICOLON
-    | Statement SEMICOLON
+VarsAndStatements: VarDeclaration SEMICOLON                 {$$ = $1;}
+    | Statement SEMICOLON                                   {$$ = $1;}
     | VarsAndStatements SEMICOLON
     | VarsAndStatements VarDeclaration SEMICOLON
     | VarsAndStatements Statement SEMICOLON
@@ -200,35 +215,34 @@ FuncInvocationExpr: Expr
     | Expr COMMA FuncInvocationExpr
     ;
 
-Expr: Expr OR Expr      
-    | Expr AND Expr
-    | NOT Expr
-    | Expr LT Expr
-    | Expr GT Expr
-    | Expr EQ Expr
-    | Expr NE Expr
-    | Expr LE Expr
-    | Expr GE Expr
-    | Expr PLUS Expr
-    | Expr MINUS Expr
-    | Expr STAR Expr
-    | Expr DIV Expr
-    | Expr MOD Expr
-    | PLUS Expr
-    | MINUS Expr                        {$$}
-    | INTLIT                            {$$ = create_new_node("INTLIT", "1", NULL);}
-    | REALLIT                           {$$ = create_new_node("REALLIT", "1", NULL);}
-    | ID                                {$$ = create_new_node("ID", "1", NULL);}
-    | FuncInvocation
-    | LPAR Expr RPAR                    {$$ = add_ast_node($$, $2);}
-    | LPAR error RPAR                   {$$ = NULL;}
+Expr: Expr OR Expr                      
+    | Expr AND Expr                     
+    | NOT Expr                          
+    | Expr LT Expr                      
+    | Expr GT Expr                      
+    | Expr EQ Expr                      
+    | Expr NE Expr                      
+    | Expr LE Expr                      
+    | Expr GE Expr                      
+    | Expr PLUS Expr                    
+    | Expr MINUS Expr                   
+    | Expr STAR Expr                    
+    | Expr DIV Expr                     
+    | Expr MOD Expr                     
+    | PLUS Expr                         
+    | MINUS Expr                        
+    | INTLIT                            
+    | REALLIT                           
+    | ID                                
+    | FuncInvocation       
+    | LPAR Expr RPAR                    
+    | LPAR error RPAR                   
     ;
 
 %%   
 
-ast_node *create_new_node(char name[], char id[], ast_node *parent){
+ast_node *create_new_node(char name[], char id[]){
     ast_node *new_node = malloc(sizeof(struct ast_node));
-    new_node->parent = parent;
     new_node->num_children = 0;
     if (name == NULL) return NULL; //Name can't be empty
     strcpy(new_node->name, name);
@@ -240,11 +254,15 @@ ast_node *create_new_node(char name[], char id[], ast_node *parent){
 }
 
 //TODO: use different functions for different node types, perhaps
-void add_ast_node(ast_node *current, ast_node *new_node){
-    if (new_node != NULL && current != NULL){
-        current->children[current->num_children] = new_node;
-        current->num_children += 1;
+ast_node *add_ast_node(ast_node *parent, ast_node *child){
+    if (child != NULL && parent != NULL){
+        parent->children[parent->num_children] = child;
+        parent->num_children += 1;
+
+        return parent;
     }
+
+    return NULL;
 }
 
 void print_ast_tree(ast_node *root, int level){
@@ -294,7 +312,6 @@ int main(int argc, char** argv) {
     if (lex_only==1) while(yylex()){} //Print only lex output
     else{
         print_tokens=0; //Dont print lex output | Set lex file print_tokens flag as 0
-        root = create_new_node("Program", NULL, NULL);
         yyparse();
         if (print_tree==1) print_ast_tree(root, 0);
         free_ast_tree(root);
