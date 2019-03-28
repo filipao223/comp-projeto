@@ -6,7 +6,10 @@
 
     //#include "symtab.h"
     #define NSYMS 100
-    #define YYDEBUG 1
+    #define YYDEBUG 0
+
+    #define _id_ "Id"
+    #define _func_params_ "FuncParams"
 
     #define MAX_TEMP 1024
 
@@ -40,6 +43,8 @@
     //AST functions
     ast_node *create_new_node(char name[], char id[]);
     ast_node *add_ast_node(ast_node *parent, ast_node *child);
+    ast_node *add_ast_list(ast_node *parent, ast_node *head);
+    void copy_ast_data(ast_node *dest, ast_node *src);
     void print_ast_tree(ast_node *root, int level);
     void free_ast_tree(ast_node* root);
 
@@ -113,40 +118,58 @@
 
 %%
 
-Program: PACKAGE ID SEMICOLON Declarations                       {root = add_ast_node(create_new_node("Program", NULL), $4);}
+Program: PACKAGE ID SEMICOLON Declarations                  {
+                                                                root = add_ast_node(create_new_node("Program", NULL), $4);
+                                                                root = root==NULL ? create_new_node("Program", NULL):root;
+                                                            }
     ;
 
-Declarations:                           {$$ = NULL;}
-    | DeclarationsRep                   {$$ = $1;}                            
+Declarations:                                               {$$ = create_new_node("empty", NULL);}
+    | DeclarationsRep                                       {$$ = $1;}
     ;
 
-DeclarationsRep: DeclarationsRep VarDeclaration SEMICOLON    {$$ = add_ast_node(create_new_node("VarDecl", NULL), $1);}               
-    | DeclarationsRep FuncDeclaration SEMICOLON              {$$ = add_ast_node(create_new_node("FuncDecl", NULL), $1);}               
-    | VarDeclaration SEMICOLON                               {$$ = $1;}               
-    | FuncDeclaration SEMICOLON                              {$$ = $1;}               
+DeclarationsRep: DeclarationsRep VarDeclaration SEMICOLON   {
+                                                                $$ = add_ast_list(create_new_node("VarDecl", NULL), $1);
+
+                                                            }
+    | DeclarationsRep FuncDeclaration SEMICOLON             {
+                                                                $$ = add_ast_list(create_new_node("FuncDecl", NULL), $1);
+                                                            }
+    | VarDeclaration SEMICOLON                              {$$ = $1;}
+    | FuncDeclaration SEMICOLON                             {$$ = $1;}
     ;
 
-VarDeclaration: VAR VarSpec                                  {$$ = $2;}
-    | VAR LPAR VarSpec SEMICOLON RPAR                        {$$ = $3;}
+VarDeclaration: VAR VarSpec                                 {   
+                                                                ast_node* temp_root = create_new_node("root", NULL);
+                                                                ast_node *linked_list = add_ast_node(temp_root, $2);
+                                                                $$ = linked_list;
+                                                            }
+    | VAR LPAR VarSpec SEMICOLON RPAR                       {$$ = $3;}
     ;
 
-VarSpec: ID VarSpecRep Type                                {$$ = add_ast_node(create_new_node("ID", "test"), $2);}
+VarSpec: ID VarSpecRep Type                                 {
+                                                                ast_node* id_node = create_new_node(_id_, $1);
+                                                                //ast_node* temp_root = create_new_node("root", NULL);
+                                                                //ast_node* linked_list = add_ast_node(id_node, $2);
+                                                                $$ = add_ast_node(id_node, $3);
+                                                            }
     ;
 
-VarSpecRep:                                                 {$$ = create_new_node("temp", NULL);}
-    | VarSpecRep COMMA ID                                   {$$ = add_ast_node(create_new_node("ID", "another"), $1);}
+VarSpecRep:                                                 {$$ = create_new_node("empty", NULL);}
+    | VarSpecRep COMMA ID                                   {$$ = add_ast_node(create_new_node(_id_, $3), $1);}
     ; 
 
-Type: INT
-    | FLOAT32
-    | BOOL
-    | STRINGVAR
+Type: INT                                                   {$$ = create_new_node("Int", NULL);}
+    | FLOAT32                                               {$$ = create_new_node("Float32", NULL);}
+    | BOOL                                                  {$$ = create_new_node("Bool", NULL);}
+    | STRINGVAR                                             {$$ = create_new_node("String", NULL);}
     ;
 
 FuncDeclaration: FUNC ID LPAR RPAR Type FuncBody            { 
                                                                 ast_node* new_node = create_new_node("FuncDecl", NULL); 
                                                                 add_ast_node(new_node, add_ast_node(create_new_node("FuncHeader", NULL), create_new_node("ID", $2)));
                                                                 add_ast_node(new_node, $6);
+                                                                add_ast_node(new_node, create_new_node("FuncBody", NULL));
                                                                 $$ = new_node;
                                                             }
     | FUNC ID LPAR Parameters RPAR FuncBody                 {$$ = add_ast_node(create_new_node("FuncDecl", NULL), $6);}
@@ -154,89 +177,91 @@ FuncDeclaration: FUNC ID LPAR RPAR Type FuncBody            {
     | FUNC ID LPAR RPAR FuncBody                            { 
                                                                 ast_node* new_node = create_new_node("FuncDecl", NULL);
                                                                 ast_node* funcHeader =  create_new_node("FuncHeader", NULL);
-                                                                add_ast_node(funcHeader, create_new_node("ID", $2));
-                                                                add_ast_node(funcHeader, create_new_node("FuncParam", NULL));
+                                                                add_ast_node(funcHeader, create_new_node(_id_, $2));
+                                                                add_ast_node(funcHeader, create_new_node(_func_params_, NULL));
                                                                 add_ast_node(new_node, funcHeader);
                                                                 add_ast_node(new_node, $5);
                                                                 $$ = new_node;
                                                             }
     ;
 
-Parameters: ID Type ParametersRep;
-
-ParametersRep:
-    | ParametersRep COMMA ID Type
+Parameters: ID Type ParametersRep                          {$$ = NULL;}
     ;
 
-FuncBody: LBRACE VarsAndStatements RBRACE                   {$$ = add_ast_node(create_new_node("FuncBody", NULL), $2);}
+ParametersRep:                                              {$$ = NULL;}
+    | ParametersRep COMMA ID Type                           {$$ = NULL;}
+    ;
+
+FuncBody: LBRACE VarsAndStatements RBRACE                   {$$ = add_ast_list(create_new_node("FuncBody", NULL), $2);}
     | LBRACE RBRACE                                         {$$ = create_new_node("FuncBody", NULL);}
     ;
 
 VarsAndStatements: VarDeclaration SEMICOLON                 {$$ = $1;}
     | Statement SEMICOLON                                   {$$ = $1;}
-    | VarsAndStatements SEMICOLON
-    | VarsAndStatements VarDeclaration SEMICOLON
-    | VarsAndStatements Statement SEMICOLON
+    | VarsAndStatements SEMICOLON                           {$$ = NULL;}
+    | VarsAndStatements VarDeclaration SEMICOLON            {$$ = NULL;}
+    | VarsAndStatements Statement SEMICOLON                 {$$ = NULL;}
     ;
 
-Statement: ID ASSIGN Expr
-    | LBRACE StatementRep RBRACE
-    | IF Expr LBRACE StatementRep RBRACE ElseCond
-    | FOR LBRACE StatementRep RBRACE
-    | FOR LBRACE StatementRep RESERVED SEMICOLON RBRACE
-    | FOR Expr LBRACE StatementRep RBRACE
-    | FOR Expr LBRACE StatementRep RESERVED SEMICOLON RBRACE
-    | RETURN Expr
-    | RETURN
-    | FuncInvocation
-    | ParseArgs
-    | PRINT LPAR Expr RPAR
-    | PRINT LPAR STRLIT RPAR
-    | error
+Statement: ID ASSIGN Expr                                   {$$ = NULL;}
+    | LBRACE StatementRep RBRACE                            {$$ = NULL;}
+    | IF Expr LBRACE StatementRep RBRACE ElseCond           {$$ = NULL;}
+    | FOR LBRACE StatementRep RBRACE                        {$$ = NULL;}
+    | FOR LBRACE StatementRep RESERVED SEMICOLON RBRACE     {$$ = NULL;}
+    | FOR Expr LBRACE StatementRep RBRACE                   {$$ = NULL;}
+    | FOR Expr LBRACE StatementRep RESERVED SEMICOLON RBRACE {$$ = NULL;}
+    | RETURN Expr                                           {$$ = NULL;}
+    | RETURN                                                {$$ = NULL;}
+    | FuncInvocation                                        {$$ = NULL;}
+    | ParseArgs                                             {$$ = NULL;}
+    | PRINT LPAR Expr RPAR                                  {$$ = NULL;}
+    | PRINT LPAR STRLIT RPAR                                {$$ = NULL;}
+    | error                                                 {$$ = NULL;}
     ;
 
-StatementRep:
-    | StatementRep Statement SEMICOLON;
-
-ElseCond:
-    | ELSE LBRACE StatementRep RBRACE
+StatementRep:                                               {$$ = NULL;}
+    | StatementRep Statement SEMICOLON                     {$$ = NULL;}
     ;
 
-ParseArgs: ID COMMA BLANKID ASSIGN PARSEINT LPAR CMDARGS LSQ Expr RSQ RPAR
-    | ID COMMA BLANKID ASSIGN PARSEINT LPAR error RPAR
+ElseCond:                                                   {$$ = NULL;}
+    | ELSE LBRACE StatementRep RBRACE                       {$$ = NULL;}
     ;
 
-FuncInvocation: ID LPAR RPAR
-    | ID LPAR FuncInvocationExpr RPAR
-    | ID LPAR error RPAR
+ParseArgs: ID COMMA BLANKID ASSIGN PARSEINT LPAR CMDARGS LSQ Expr RSQ RPAR  {$$ = NULL;}
+    | ID COMMA BLANKID ASSIGN PARSEINT LPAR error RPAR                      {$$ = NULL;}
     ;
 
-FuncInvocationExpr: Expr
-    | Expr COMMA FuncInvocationExpr
+FuncInvocation: ID LPAR RPAR                                {$$ = NULL;}
+    | ID LPAR FuncInvocationExpr RPAR                       {$$ = NULL;}
+    | ID LPAR error RPAR                                    {$$ = NULL;}
     ;
 
-Expr: Expr OR Expr                      
-    | Expr AND Expr                     
-    | NOT Expr                          
-    | Expr LT Expr                      
-    | Expr GT Expr                      
-    | Expr EQ Expr                      
-    | Expr NE Expr                      
-    | Expr LE Expr                      
-    | Expr GE Expr                      
-    | Expr PLUS Expr                    
-    | Expr MINUS Expr                   
-    | Expr STAR Expr                    
-    | Expr DIV Expr                     
-    | Expr MOD Expr                     
-    | PLUS Expr                         
-    | MINUS Expr                        
-    | INTLIT                            
-    | REALLIT                           
-    | ID                                
-    | FuncInvocation       
-    | LPAR Expr RPAR                    
-    | LPAR error RPAR                   
+FuncInvocationExpr: Expr                                    {$$ = NULL;}
+    | Expr COMMA FuncInvocationExpr                         {$$ = NULL;}
+    ;
+
+Expr: Expr OR Expr                                          {$$ = NULL;}
+    | Expr AND Expr                                         {$$ = NULL;}
+    | NOT Expr                                              {$$ = NULL;}
+    | Expr LT Expr                                          {$$ = NULL;}
+    | Expr GT Expr                                          {$$ = NULL;}
+    | Expr EQ Expr                                          {$$ = NULL;}
+    | Expr NE Expr                                          {$$ = NULL;}
+    | Expr LE Expr                                          {$$ = NULL;}
+    | Expr GE Expr                                          {$$ = NULL;}
+    | Expr PLUS Expr                                        {$$ = NULL;}
+    | Expr MINUS Expr                                       {$$ = NULL;}
+    | Expr STAR Expr                                        {$$ = NULL;}
+    | Expr DIV Expr                                         {$$ = NULL;}
+    | Expr MOD Expr                                         {$$ = NULL;}
+    | PLUS Expr                                             {$$ = NULL;}
+    | MINUS Expr                                            {$$ = NULL;}
+    | INTLIT                                                {$$ = NULL;}
+    | REALLIT                                               {$$ = NULL;}
+    | ID                                                    {$$ = NULL;}
+    | FuncInvocation                                        {$$ = NULL;}
+    | LPAR Expr RPAR                                        {$$ = NULL;}
+    | LPAR error RPAR                                       {$$ = NULL;}
     ;
 
 %%   
@@ -256,6 +281,7 @@ ast_node *create_new_node(char name[], char id[]){
 //TODO: use different functions for different node types, perhaps
 ast_node *add_ast_node(ast_node *parent, ast_node *child){
     if (child != NULL && parent != NULL){
+        //printf("Parent: %s | Child: %s\n", parent->id, child->id);
         parent->children[parent->num_children] = child;
         parent->num_children += 1;
 
@@ -263,6 +289,34 @@ ast_node *add_ast_node(ast_node *parent, ast_node *child){
     }
 
     return NULL;
+}
+
+ast_node *add_ast_list(ast_node *parent, ast_node *head){
+    if (parent != NULL && head!=NULL){
+        ast_node *current = head;
+        /*Assuming head is head node of a linked list (always one child as children[0])*/
+        for (; current->children[0] != NULL; current = current->children[0]){
+            if (strcmp("empty", current->name)!=0 && strcmp("root", current->name)!=0){ //If node name is not "empty" and not "root"
+                parent->children[parent->num_children] = malloc(sizeof(struct ast_node));
+                copy_ast_data(parent->children[parent->num_children], current);
+                parent->num_children += 1;
+            }
+        }
+
+        /*Free children's childs*/
+        free_ast_tree(head);
+
+        return parent;
+    }
+
+    return NULL;
+}
+
+void copy_ast_data(ast_node *dest, ast_node *src){
+    if (dest != NULL && src != NULL){
+        strcpy(dest->name, src->name);
+        if (strcmp(src->id, "")!=0) strcpy(dest->id, src->id);
+    }
 }
 
 void print_ast_tree(ast_node *root, int level){
@@ -286,6 +340,7 @@ void print_ast_tree(ast_node *root, int level){
 }
 
 void free_ast_tree(ast_node* root){
+    if (root==NULL) return;
     //Iterate over all children
     for (int i=0; i< root->num_children; i++){
         free_ast_tree(root->children[i]);
@@ -296,7 +351,7 @@ void free_ast_tree(ast_node* root){
 }
 
 int main(int argc, char** argv) {
-    int yydebug;
+    //int yydebug;
     #if YYDEBUG
         yydebug = 1;
     #endif

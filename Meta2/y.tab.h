@@ -140,7 +140,7 @@ extern int yydebug;
 
 union YYSTYPE
 {
-#line 109 "gocompiler.y" /* yacc.c:1909  */
+#line 114 "gocompiler.y" /* yacc.c:1909  */
 
     char *str;
     struct ast_node *node;

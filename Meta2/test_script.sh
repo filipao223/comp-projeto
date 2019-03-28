@@ -22,7 +22,11 @@ shopt -s nullglob # enable null glob
 for filename in ./*.{dgo,go}; do
     echo "Testing "$filename"...."
 
-    ./gocompiler < $filename > output.txt
+    if [ "$filename" = "./errors.dgo" ] || [ "$filename" = "./syntax_errors_stmt.dgo" ] || [ "$filename" = "./testeErros.dgo" ]; then
+        ./gocompiler < $filename > output.txt
+    else
+        ./gocompiler -t < $filename > output.txt
+    fi
 
     if cmp -s "${filename%.*}.out" "output.txt"; then
         echo "Files are the same"
