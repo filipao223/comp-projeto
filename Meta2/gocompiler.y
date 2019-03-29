@@ -55,8 +55,8 @@
 %}
 
 //Tokens
-%token INTLIT
-%token REALLIT
+%token <int_value> INTLIT
+%token <float_value> REALLIT
 %token <str> ID
 %token FUNC
 %token LPAR
@@ -97,7 +97,7 @@
 %token <str> RESERVED
 %token LSQ
 %token LBRACE
-%token STRLIT
+%token <str> STRLIT
 
 %left OR
 %left AND
@@ -108,15 +108,23 @@
 %left STAR DIV MOD
 %left LPAR RPAR
 
-%type <node> Expr Program Declarations DeclarationsRep VarDeclaration VarSpec VarSpecRep Type FuncDeclaration Parameters ParametersRep FuncBody
+%type <node> Expr Program Declarations DeclarationsRep VarDeclaration VarSpec VarSpecRep FuncDeclaration Parameters ParametersRep FuncBody
 %type <node> VarsAndStatements Statement StatementRep ElseCond ParseArgs FuncInvocation FuncInvocationExpr
+%type <str> Type
 
 %union{
     char *str;
+    int int_value;
+    double float_value;
     struct ast_node *node;
 }
 
+%start Program
+
 %%
+
+temp: Expr          {root = $1;}
+    ;
 
 Program: PACKAGE ID SEMICOLON Declarations                  {
                                                                 root = add_ast_node(create_new_node("Program", NULL), $4);
@@ -151,7 +159,7 @@ VarSpec: ID VarSpecRep Type                                 {
                                                                 ast_node* id_node = create_new_node(_id_, $1);
                                                                 //ast_node* temp_root = create_new_node("root", NULL);
                                                                 //ast_node* linked_list = add_ast_node(id_node, $2);
-                                                                $$ = add_ast_node(id_node, $3);
+                                                                $$ = add_ast_node(id_node, create_new_node($3, NULL));
                                                             }
     ;
 
@@ -159,10 +167,10 @@ VarSpecRep:                                                 {$$ = create_new_nod
     | VarSpecRep COMMA ID                                   {$$ = add_ast_node(create_new_node(_id_, $3), $1);}
     ; 
 
-Type: INT                                                   {$$ = create_new_node("Int", NULL);}
-    | FLOAT32                                               {$$ = create_new_node("Float32", NULL);}
-    | BOOL                                                  {$$ = create_new_node("Bool", NULL);}
-    | STRINGVAR                                             {$$ = create_new_node("String", NULL);}
+Type: INT                                                   {$$ = "Int";}
+    | FLOAT32                                               {$$ = "Float32";}
+    | BOOL                                                  {$$ = "Bool";}
+    | STRINGVAR                                             {$$ = "String";}
     ;
 
 FuncDeclaration: FUNC ID LPAR RPAR Type FuncBody            { 
@@ -173,34 +181,46 @@ FuncDeclaration: FUNC ID LPAR RPAR Type FuncBody            {
                                                                 $$ = new_node;
                                                             }
     | FUNC ID LPAR Parameters RPAR FuncBody                 {$$ = add_ast_node(create_new_node("FuncDecl", NULL), $6);}
-    | FUNC ID LPAR Parameters RPAR Type FuncBody            {$$ = add_ast_node(create_new_node("FuncDecl", NULL), $6);}
+    | FUNC ID LPAR Parameters RPAR Type FuncBody            {$$ = add_ast_node(create_new_node("FuncDecl", NULL), create_new_node($6, NULL));}
     | FUNC ID LPAR RPAR FuncBody                            { 
                                                                 ast_node* new_node = create_new_node("FuncDecl", NULL);
                                                                 ast_node* funcHeader =  create_new_node("FuncHeader", NULL);
-                                                                add_ast_node(funcHeader, create_new_node(_id_, $2));
-                                                                add_ast_node(funcHeader, create_new_node(_func_params_, NULL));
+                                                                add_ast_node(funcHeader, create_new_node("Id", $2));
+                                                                add_ast_node(funcHeader, create_new_node("FuncParams", NULL));
                                                                 add_ast_node(new_node, funcHeader);
                                                                 add_ast_node(new_node, $5);
+                                                                /*Check if funcbody has children*/
+                                                                if (new_node->children[1] != NULL && new_node->children[1]->num_children != 0){
+                                                                    add_ast_node(new_node, create_new_node("FuncBody", NULL));
+                                                                }
                                                                 $$ = new_node;
                                                             }
     ;
 
-Parameters: ID Type ParametersRep                          {$$ = NULL;}
+Parameters: ID Type ParametersRep                          {
+                                                                ast_node *param_decl = create_new_node("ParamDecl", NULL);
+                                                                ast_node *func_param = create_new_node("FuncParams", NULL);
+                                                                add_ast_node(param_decl, create_new_node($2, NULL));
+                                                                add_ast_node(param_decl, create_new_node("Id", $1));
+                                                                add_ast_node(func_param, param_decl);
+                                                                add_ast_node(func_param, $3);
+                                                                $$ = func_param;
+                                                            }
     ;
 
 ParametersRep:                                              {$$ = NULL;}
     | ParametersRep COMMA ID Type                           {$$ = NULL;}
     ;
 
-FuncBody: LBRACE VarsAndStatements RBRACE                   {$$ = add_ast_list(create_new_node("FuncBody", NULL), $2);}
+FuncBody: LBRACE VarsAndStatements RBRACE                   {$$ = add_ast_node(create_new_node("FuncBody", NULL), $2);}
     | LBRACE RBRACE                                         {$$ = create_new_node("FuncBody", NULL);}
     ;
 
 VarsAndStatements: VarDeclaration SEMICOLON                 {$$ = $1;}
     | Statement SEMICOLON                                   {$$ = $1;}
-    | VarsAndStatements SEMICOLON                           {$$ = NULL;}
-    | VarsAndStatements VarDeclaration SEMICOLON            {$$ = NULL;}
-    | VarsAndStatements Statement SEMICOLON                 {$$ = NULL;}
+    | VarsAndStatements SEMICOLON                           {$$ = $1;}
+    | VarsAndStatements VarDeclaration SEMICOLON            {$$ = $1;}
+    | VarsAndStatements Statement SEMICOLON                 {$$ = $1;}
     ;
 
 Statement: ID ASSIGN Expr                                   {$$ = NULL;}
@@ -212,7 +232,7 @@ Statement: ID ASSIGN Expr                                   {$$ = NULL;}
     | FOR Expr LBRACE StatementRep RESERVED SEMICOLON RBRACE {$$ = NULL;}
     | RETURN Expr                                           {$$ = NULL;}
     | RETURN                                                {$$ = NULL;}
-    | FuncInvocation                                        {$$ = NULL;}
+    | FuncInvocation                                        {$$ = add_ast_node(create_new_node("Call", NULL), $1);}
     | ParseArgs                                             {$$ = NULL;}
     | PRINT LPAR Expr RPAR                                  {$$ = NULL;}
     | PRINT LPAR STRLIT RPAR                                {$$ = NULL;}
@@ -231,36 +251,109 @@ ParseArgs: ID COMMA BLANKID ASSIGN PARSEINT LPAR CMDARGS LSQ Expr RSQ RPAR  {$$ 
     | ID COMMA BLANKID ASSIGN PARSEINT LPAR error RPAR                      {$$ = NULL;}
     ;
 
-FuncInvocation: ID LPAR RPAR                                {$$ = NULL;}
-    | ID LPAR FuncInvocationExpr RPAR                       {$$ = NULL;}
+FuncInvocation: ID LPAR RPAR                                {$$ = create_new_node("Id", $1);}
+    | ID LPAR FuncInvocationExpr RPAR                       {
+                                                                ast_node *root = create_new_node("root", NULL);
+                                                                add_ast_node(create_new_node("Id", $1), $3);
+                                                                $$ = NULL;
+                                                            }
     | ID LPAR error RPAR                                    {$$ = NULL;}
     ;
 
-FuncInvocationExpr: Expr                                    {$$ = NULL;}
-    | Expr COMMA FuncInvocationExpr                         {$$ = NULL;}
+FuncInvocationExpr: Expr                                    {$$ = $1;}
+    | Expr COMMA FuncInvocationExpr                         {
+                                                                ast_node *expr_list = add_ast_node(create_new_node("root", NULL), $1);
+                                                                add_ast_node(expr_list, $3);
+                                                                $$ = expr_list;
+                                                            }
     ;
 
-Expr: Expr OR Expr                                          {$$ = NULL;}
-    | Expr AND Expr                                         {$$ = NULL;}
-    | NOT Expr                                              {$$ = NULL;}
-    | Expr LT Expr                                          {$$ = NULL;}
-    | Expr GT Expr                                          {$$ = NULL;}
-    | Expr EQ Expr                                          {$$ = NULL;}
-    | Expr NE Expr                                          {$$ = NULL;}
-    | Expr LE Expr                                          {$$ = NULL;}
-    | Expr GE Expr                                          {$$ = NULL;}
-    | Expr PLUS Expr                                        {$$ = NULL;}
-    | Expr MINUS Expr                                       {$$ = NULL;}
-    | Expr STAR Expr                                        {$$ = NULL;}
-    | Expr DIV Expr                                         {$$ = NULL;}
-    | Expr MOD Expr                                         {$$ = NULL;}
-    | PLUS Expr                                             {$$ = NULL;}
-    | MINUS Expr                                            {$$ = NULL;}
-    | INTLIT                                                {$$ = NULL;}
-    | REALLIT                                               {$$ = NULL;}
-    | ID                                                    {$$ = NULL;}
-    | FuncInvocation                                        {$$ = NULL;}
-    | LPAR Expr RPAR                                        {$$ = NULL;}
+Expr: Expr OR Expr                                          {
+                                                                ast_node *node = create_new_node("Or", NULL);
+                                                                add_ast_node(node, $1);
+                                                                add_ast_node(node, $3);
+                                                                $$ = node;
+                                                            }
+    | Expr AND Expr                                         {
+                                                                ast_node *node = create_new_node("And", NULL);
+                                                                add_ast_node(node, $1);
+                                                                add_ast_node(node, $3);
+                                                                $$ = node;
+                                                            }
+    | NOT Expr                                              {$$ = add_ast_node(create_new_node("Not", NULL), $2);}
+    | Expr LT Expr                                          {
+                                                                ast_node *node = create_new_node("Lt", NULL);
+                                                                add_ast_node(node, $1);
+                                                                add_ast_node(node, $3);
+                                                                $$ = node;
+                                                            }
+    | Expr GT Expr                                          {
+                                                                ast_node *node = create_new_node("Gt", NULL);
+                                                                add_ast_node(node, $1);
+                                                                add_ast_node(node, $3);
+                                                                $$ = node;
+                                                            }
+    | Expr EQ Expr                                          {
+                                                                ast_node *node = create_new_node("Le", NULL);
+                                                                add_ast_node(node, $1);
+                                                                add_ast_node(node, $3);
+                                                                $$ = node;
+                                                            }
+    | Expr NE Expr                                          {
+                                                                ast_node *node = create_new_node("Ne", NULL);
+                                                                add_ast_node(node, $1);
+                                                                add_ast_node(node, $3);
+                                                                $$ = node;
+                                                            }
+    | Expr LE Expr                                          {
+                                                                ast_node *node = create_new_node("Le", NULL);
+                                                                add_ast_node(node, $1);
+                                                                add_ast_node(node, $3);
+                                                                $$ = node;
+                                                            }
+    | Expr GE Expr                                          {
+                                                                ast_node *node = create_new_node("Ge", NULL);
+                                                                add_ast_node(node, $1);
+                                                                add_ast_node(node, $3);
+                                                                $$ = node;
+                                                            }
+    | Expr PLUS Expr                                        {
+                                                                ast_node *node = create_new_node("Add", NULL);
+                                                                add_ast_node(node, $1);
+                                                                add_ast_node(node, $3);
+                                                                $$ = node;
+                                                            }
+    | Expr MINUS Expr                                       {
+                                                                ast_node *node = create_new_node("Sub", NULL);
+                                                                add_ast_node(node, $1);
+                                                                add_ast_node(node, $3);
+                                                                $$ = node;
+                                                            }
+    | Expr STAR Expr                                        {
+                                                                ast_node *node = create_new_node("Mul", NULL);
+                                                                add_ast_node(node, $1);
+                                                                add_ast_node(node, $3);
+                                                                $$ = node;
+                                                            }
+    | Expr DIV Expr                                         {
+                                                                ast_node *node = create_new_node("Div", NULL);
+                                                                add_ast_node(node, $1);
+                                                                add_ast_node(node, $3);
+                                                                $$ = node;
+                                                            }
+    | Expr MOD Expr                                         {
+                                                                ast_node *node = create_new_node("Mod", NULL);
+                                                                add_ast_node(node, $1);
+                                                                add_ast_node(node, $3);
+                                                                $$ = node;
+                                                            }
+    | PLUS Expr                                             {$$ = add_ast_node(create_new_node("Plus", NULL), $2);}
+    | MINUS Expr                                            {$$ = add_ast_node(create_new_node("Minus", NULL), $2);}
+    | INTLIT                                                {sprintf(temp, "%d", $1); $$ = create_new_node("IntLit", temp);}
+    | REALLIT                                               {sprintf(temp, "%f", $1); $$ = create_new_node("RealLit", temp);}
+    | ID                                                    {$$ = create_new_node("Id", $1);}
+    | FuncInvocation                                        {$$ = add_ast_list(create_new_node("Call", NULL), $1);}
+    | LPAR Expr RPAR                                        {$$ = $2;}
     | LPAR error RPAR                                       {$$ = NULL;}
     ;
 
