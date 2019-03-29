@@ -87,7 +87,7 @@ REALLIT                                 (([0-9]*\.[0-9]+)|([0-9]+\.)|([1-9]\.)|[
 "os.Args"                               { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("CMDARGS\n");return CMDARGS;};
 \"                                      { error_column_number = total_columns; semicolon=0; ++total_columns; current_string[0] = '\0'; BEGIN STRING;};
 <STRING>\\(\\|n|f|r|t|(\"))             { semicolon=0; total_columns+= strlen(yytext); strcat(current_string, yytext);};
-<STRING>\"                              { semicolon=1; ++total_columns; if (print_tokens==1) printf("STRLIT(\"%s\")\n", current_string); BEGIN 0; return STRLIT;};
+<STRING>\"                              { semicolon=1; ++total_columns; if (print_tokens==1) printf("STRLIT(\"%s\")\n", current_string); BEGIN 0; yylval.str = strdup(yytext); return STRLIT;};
 <STRING>\\"\t"+|\\" "+                  {printf("Line %d, column %d: invalid escape sequence (%c)\n", total_lines, total_columns, yytext[0]); total_columns += strlen(yytext); BEGIN ILLEGAL_ESC;};
 <STRING>\\[^"\n"]|\\                    { semicolon=0; printf("Line %d, column %d: invalid escape sequence (%s)\n", total_lines, total_columns, yytext); total_columns += strlen(yytext); BEGIN ILLEGAL_ESC;};
 <STRING>"\n"|"\r"|"\r\n"                { semicolon=0; printf("Line %d, column %d: unterminated string literal\n", total_lines, error_column_number); total_columns=1; ++total_lines; BEGIN 0;};
@@ -99,8 +99,8 @@ REALLIT                                 (([0-9]*\.[0-9]+)|([0-9]+\.)|([1-9]\.)|[
 <ILLEGAL_ESC>"\n"                       { semicolon=0; printf("Line %d, column %d: unterminated string literal\n", total_lines, error_column_number); total_columns=1; ++total_lines; BEGIN 0;};
 <ILLEGAL_ESC>.                          total_columns+=strlen(yytext);
 <ILLEGAL_ESC><<EOF>>                    { semicolon=0; printf("Line %d, column %d: unterminated string literal\n", total_lines, error_column_number); ++total_lines; BEGIN 0;};
-{INT}|{OCTAL}|{HEXA}                    { semicolon=1; total_columns += strlen(yytext); if (print_tokens==1) printf("INTLIT(%s)\n", yytext); return INTLIT;};
-{REALLIT}                               { semicolon=1; total_columns += strlen(yytext); if (print_tokens==1) printf("REALLIT(%s)\n", yytext); return REALLIT;};
+{INT}|{OCTAL}|{HEXA}                    { semicolon=1; total_columns += strlen(yytext); if (print_tokens==1) printf("INTLIT(%s)\n", yytext); yylval.int_value = atoi(yytext); return INTLIT;};
+{REALLIT}                               { semicolon=1; total_columns += strlen(yytext); if (print_tokens==1) printf("REALLIT(%s)\n", yytext); yylval.float_value = atof(yytext); return REALLIT;};
 {RESERVED}                              { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("RESERVED(%s)\n", yytext); yylval.str = strdup(yytext); return RESERVED;};
 {ID}                                    { semicolon=1; total_columns += strlen(yytext); if (print_tokens==1) printf("ID(%s)\n", yytext); yylval.str = strdup(yytext); return ID;};
 .                                       printf("Line %d, column %d: illegal character (%s)\n", total_lines, total_columns, yytext); total_columns += strlen(yytext);
