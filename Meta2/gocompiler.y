@@ -134,7 +134,7 @@ Program: PACKAGE ID SEMICOLON Declarations                  {
                                                             }
     ;
 
-Declarations:                                               {$$ = create_new_node("empty", NULL);}
+Declarations:                                               {$$ = NULL;}
     | DeclarationsRep                                       {$$ = $1;}
     ;
 
@@ -186,7 +186,7 @@ VarSpec: ID VarSpecRep Type                                 {
                                                             }
     ;
 
-VarSpecRep:                                                 {$$ = create_new_node("empty", NULL);}
+VarSpecRep:                                                 {$$ = NULL;}
     | VarSpecRep COMMA ID                                   {$$ = add_ast_node(create_new_node("Id", $3), $1);}
     ; 
 
@@ -289,7 +289,7 @@ Parameters: ID Type ParametersRep                          {
                                                             }
     ;
 
-ParametersRep:                                              {$$ = create_new_node("empty", NULL);}
+ParametersRep:                                              {$$ = NULL;}
     | ParametersRep COMMA ID Type                           {$$ = add_ast_node($1, create_new_node_param("Id", $3, $4));}
     ;
 
@@ -359,12 +359,12 @@ Statement: ID ASSIGN Expr                                   {
     | error                                                 {$$ = create_new_node("error", NULL);}
     ;
 
-StatementRep:                                               {$$ = create_new_node("empty", NULL);}
+StatementRep:                                               {$$ = NULL;}
     | StatementRep Statement SEMICOLON                     {$$ = add_ast_node($2, $1);}
     ;
 
-ElseCond:                                                   {$$ = NULL;}
-    | ELSE LBRACE StatementRep RBRACE                       {$$ = NULL;}
+ElseCond:                                                   {$$ = create_new_node("Block", NULL);}
+    | ELSE LBRACE StatementRep RBRACE                       {$$ = append_list(create_new_node("Block", NULL), add_ast_node(create_new_node("root", NULL), $3));}
     ;
 
 ParseArgs: ID COMMA BLANKID ASSIGN PARSEINT LPAR CMDARGS LSQ Expr RSQ RPAR  {
@@ -380,7 +380,7 @@ ParseArgs: ID COMMA BLANKID ASSIGN PARSEINT LPAR CMDARGS LSQ Expr RSQ RPAR  {
 FuncInvocation: ID LPAR RPAR                                {$$ = create_new_node("Id", $1);}
     | ID LPAR FuncInvocationExpr RPAR                       {
                                                                 ast_node *id = create_new_node("Id", $1);
-                                                                ast_node *root = create_new_node("root", NULL);
+                                                                //ast_node *root = create_new_node("root", NULL);
                                                                 //add_ast_node(id, $3);
                                                                 //$$ = add_ast_node(create_new_node("root", NULL), id);
                                                                 $$ = add_ast_node(id, $3);
@@ -527,6 +527,7 @@ ast_node *add_ast_node(ast_node *parent, ast_node *child){
 
         return parent;
     }
+    else if(parent != NULL && child == NULL) return parent;
 
     return NULL;
 }
