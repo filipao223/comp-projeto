@@ -140,7 +140,7 @@ extern int yydebug;
 
 union YYSTYPE
 {
-#line 115 "gocompiler.y" /* yacc.c:1909  */
+#line 120 "gocompiler.y" /* yacc.c:1909  */
 
     char *str;
     int int_value;
