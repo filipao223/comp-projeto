@@ -49,7 +49,6 @@
     ast_node *append_list(ast_node *parent, ast_node *root_node);
     void copy_ast_data(ast_node *dest, ast_node *src);
     void copy_ast_children(ast_node *dest, ast_node *src);
-    void fix_indentation(ast_node *parent, ast_node *child);
     void print_ast_tree(ast_node *root, int level);
     void free_ast_tree(ast_node* root);
 
@@ -307,6 +306,8 @@ FuncBody: LBRACE VarsAndStatements RBRACE                   {
                                                                         || strcmp(vars_stmt->name, "Call")==0
                                                                         || strcmp(vars_stmt->name, "ParseArgs")==0
                                                                         || strcmp(vars_stmt->name, "Print")==0
+                                                                        || strcmp(vars_stmt->name, "Assign")==0
+                                                                        || strcmp(vars_stmt->name, "Block")==0
                                                                         || strcmp(vars_stmt->name,"VarDecl")==0
                                                                         )
                                                                     )
@@ -350,11 +351,11 @@ Statement: ID ASSIGN Expr                                   {
                                                             }
     | LBRACE StatementRep RBRACE                            {
                                                                 ast_node *list = add_ast_node(create_new_node("root", NULL), $2);
-                                                                if (list != NULL && list->num_children>2){
+                                                                if (list->children[0] != NULL && list->children[0]->num_children>1){
                                                                     ast_node* block = append_list(create_new_node("Block", NULL), list);
-                                                                    $$ = add_ast_node(create_new_node("root", NULL), block);
+                                                                    $$ = block;
                                                                 }
-                                                                else $$ = $2;
+                                                                else $$ = list;
                                                                 //$$ = $2;
                                                             }
     | IF Expr LBRACE StatementRep RBRACE ElseCond           {
@@ -396,7 +397,7 @@ Statement: ID ASSIGN Expr                                   {
     ;
 
 StatementRep:                                               {$$ = NULL;}
-    | StatementRep Statement SEMICOLON                     {$$ = add_ast_node($2, $1);}
+    | StatementRep Statement SEMICOLON                      {$$ = add_ast_node($2, $1);}
     ;
 
 ElseCond:                                                   {$$ = create_new_node("Block", NULL);}
@@ -618,33 +619,6 @@ ast_node *append_list(ast_node *parent, ast_node *root_node){
     }
 
     return NULL;
-}
-
-
-
-
-void fix_indentation(ast_node *parent, ast_node *child){
-    if (parent != NULL && child != NULL){
-        ast_node *current = child->children[0];
-
-        parent->children[parent->num_children] = current;
-        parent->num_children += 1;
-
-        int flag = 0;
-        for(int i=0; i<child->num_children; i++){
-
-            if (flag == 1){
-                ast_node *node = malloc(sizeof(struct ast_node));
-                copy_ast_data(node, current->children[i]);
-                copy_ast_children(node, current->children[i]);
-                add_ast_node(parent, node);
-                flag = 0;
-            }
-            else if (current->children[i]->num_children == 0 && flag == 0) continue;
-            else if(current->children[i]->num_children>0) flag = 1;
-            
-        }
-    }
 }
 
 
