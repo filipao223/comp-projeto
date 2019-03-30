@@ -296,7 +296,15 @@ ParametersRep:                                              {$$ = create_new_nod
 FuncBody: LBRACE VarsAndStatements RBRACE                   {
                                                                 //printf("came out\n");
                                                                 //print_ast_tree($2,0);
-                                                                ast_node* node = append_list(create_new_node("FuncBody", NULL), $2);
+                                                                ast_node* vars_stmt = $2;
+                                                                ast_node* node;
+                                                                /*Check if list starts with 'root' node*/
+                                                                if (vars_stmt != NULL && strcmp(vars_stmt->name, "If")==0){
+                                                                    node = add_ast_node(create_new_node("FuncBody", NULL), $2);
+                                                                }
+                                                                else{
+                                                                    node = append_list(create_new_node("FuncBody", NULL), $2);
+                                                                }
                                                                 //fix_indentation(node, $2);
                                                                 $$ = node;}
     | LBRACE RBRACE                                         {$$ = create_new_node("FuncBody", NULL);}
@@ -334,7 +342,9 @@ Statement: ID ASSIGN Expr                                   {
     | IF Expr LBRACE StatementRep RBRACE ElseCond           {
                                                                 ast_node *if_node = create_new_node("If", NULL);
                                                                 add_ast_node(if_node, $2);
-                                                                append_list(if_node, $4);
+                                                                //ast_node *list = $3;
+                                                                ast_node *block = append_list(create_new_node("Block", NULL), add_ast_node(create_new_node("root", NULL), $4));
+                                                                add_ast_node(if_node, block);
                                                                 $$ = if_node;
                                                                 //$$ = create_new_node("empty", NULL);
                                                             }
@@ -350,7 +360,7 @@ Statement: ID ASSIGN Expr                                   {
     ;
 
 StatementRep:                                               {$$ = create_new_node("empty", NULL);}
-    | StatementRep Statement SEMICOLON                     {$$ = add_ast_node($1, $2);}
+    | StatementRep Statement SEMICOLON                     {$$ = add_ast_node($2, $1);}
     ;
 
 ElseCond:                                                   {$$ = NULL;}
@@ -370,6 +380,7 @@ ParseArgs: ID COMMA BLANKID ASSIGN PARSEINT LPAR CMDARGS LSQ Expr RSQ RPAR  {
 FuncInvocation: ID LPAR RPAR                                {$$ = create_new_node("Id", $1);}
     | ID LPAR FuncInvocationExpr RPAR                       {
                                                                 ast_node *id = create_new_node("Id", $1);
+                                                                ast_node *root = create_new_node("root", NULL);
                                                                 //add_ast_node(id, $3);
                                                                 //$$ = add_ast_node(create_new_node("root", NULL), id);
                                                                 $$ = add_ast_node(id, $3);
@@ -411,7 +422,7 @@ Expr: Expr OR Expr                                          {
                                                                 $$ = node;
                                                             }
     | Expr EQ Expr                                          {
-                                                                ast_node *node = create_new_node("Le", NULL);
+                                                                ast_node *node = create_new_node("Eq", NULL);
                                                                 add_ast_node(node, $1);
                                                                 add_ast_node(node, $3);
                                                                 $$ = node;
