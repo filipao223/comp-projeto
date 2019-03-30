@@ -39,12 +39,12 @@ REALLIT                                 (([0-9]*\.[0-9]+)|([0-9]+\.)|([1-9]\.)|[
 
 " "                                     total_columns += strlen(yytext);
 "\t"                                    total_columns+=strlen(yytext);
-"\n"                                    { error_line_number = total_lines; error_column_number = total_columns; ++total_lines; total_columns=1; if (semicolon==1 && print_tokens==1){printf("SEMICOLON\n"); semicolon=0;} else if (semicolon==1){ semicolon=0; return SEMICOLON;}};
+"\n"                                    {  ++total_lines; total_columns=1; if (semicolon==1 && print_tokens==1){printf("SEMICOLON\n"); semicolon=0;} else if (semicolon==1){ semicolon=0; return SEMICOLON;}};
 "/*"                                    {  error_line_number = total_lines; error_column_number = total_columns; total_columns+= 2;comment = 1;BEGIN COMMENT;};
 <COMMENT>"\n"                           ++total_lines; total_columns=1;
 <COMMENT>[^["*/"]]*                       total_columns += strlen(yytext);
 <COMMENT>"*/"                           { total_columns += 2; comment = 0; BEGIN 0;};
-<COMMENT><<EOF>>                        { semicolon=0; BEGIN 0;}
+<COMMENT><<EOF>>                        { printf("Line %d, column %d: unterminated comment\n", error_line_number, error_column_number);semicolon=0; BEGIN 0;}
 <COMMENT>.                              { total_columns += strlen(yytext);};
 ";"                                     { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("SEMICOLON\n"); return SEMICOLON;};
 "_"                                     { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("BLANKID\n"); return BLANKID;};
@@ -103,7 +103,9 @@ REALLIT                                 (([0-9]*\.[0-9]+)|([0-9]+\.)|([1-9]\.)|[
 {REALLIT}                               { semicolon=1; total_columns += strlen(yytext); if (print_tokens==1) printf("REALLIT(%s)\n", yytext); yylval.float_value = atof(yytext); return REALLIT;};
 {RESERVED}                              { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("RESERVED(%s)\n", yytext); yylval.str = strdup(yytext); return RESERVED;};
 {ID}                                    { semicolon=1; total_columns += strlen(yytext); if (print_tokens==1) printf("ID(%s)\n", yytext); yylval.str = strdup(yytext); return ID;};
+<<EOF>>                                 { if (semicolon==1 && print_tokens==1) printf("SEMICOLON\n"); return 0;}
 .                                       printf("Line %d, column %d: illegal character (%s)\n", total_lines, total_columns, yytext); total_columns += strlen(yytext);
+
 %%
 /*int main(int argc, char **argv)
 {
