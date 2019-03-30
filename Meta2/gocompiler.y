@@ -316,7 +316,6 @@ FuncBody: LBRACE VarsAndStatements RBRACE                   {
                                                                 else{
                                                                     node = append_list(create_new_node("FuncBody", NULL), $2);
                                                                 }
-                                                                //fix_indentation(node, $2);
                                                                 $$ = node;}
     | LBRACE RBRACE                                         {$$ = create_new_node("FuncBody", NULL);}
     ;
@@ -350,10 +349,13 @@ Statement: ID ASSIGN Expr                                   {
                                                                 $$ = add_ast_node(node, $3);
                                                             }
     | LBRACE StatementRep RBRACE                            {
-                                                                
-                                                                
-                                                                
-                                                                $$ = $2;
+                                                                ast_node *list = add_ast_node(create_new_node("root", NULL), $2);
+                                                                if (list != NULL && list->num_children>2){
+                                                                    ast_node* block = append_list(create_new_node("Block", NULL), list);
+                                                                    $$ = add_ast_node(create_new_node("root", NULL), block);
+                                                                }
+                                                                else $$ = $2;
+                                                                //$$ = $2;
                                                             }
     | IF Expr LBRACE StatementRep RBRACE ElseCond           {
                                                                 ast_node *if_node = create_new_node("If", NULL);
