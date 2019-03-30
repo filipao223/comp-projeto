@@ -35,6 +35,7 @@
     typedef struct ast_node{
         char name[MAX_AST_NODE_NAME];
         char id[MAX_AST_NODE_ID];
+        char type[MAX_AST_NODE_NAME];
         struct ast_node *parent;
         struct ast_node *children[MAX_AST_NODE_CHILDREN];
         int num_children;
@@ -42,6 +43,7 @@
 
     //AST functions
     ast_node *create_new_node(char name[], char id[]);
+    ast_node *create_new_node_param(char name[], char id[], char type[]);
     ast_node *add_ast_node(ast_node *parent, ast_node *child);
     ast_node *add_ast_list(ast_node *parent, ast_node *head);
     ast_node *append_list(ast_node *parent, ast_node *root_node);
@@ -138,11 +140,11 @@ Declarations:                                               {$$ = create_new_nod
 
 DeclarationsRep: DeclarationsRep VarDeclaration SEMICOLON   {
                                                                 
-                                                                $$ = add_ast_node($1, $2);
+                                                                $$ = append_list($1, $2);
 
                                                             }
     | DeclarationsRep FuncDeclaration SEMICOLON             {
-                                                                $$ = add_ast_node($1, $2);
+                                                                $$ = append_list($1, $2);
                                                             }
     | VarDeclaration SEMICOLON                              {$$ = $1;}
     | FuncDeclaration SEMICOLON                             {$$ = $1;}
@@ -202,14 +204,47 @@ FuncDeclaration: FUNC ID LPAR RPAR Type FuncBody            {
                                                                 add_ast_node(new_node, funcheader);
                                                                 add_ast_node(new_node, $6);
                                                                 /*Check if funcbody has children*/
-                                                                if (new_node->children[1] != NULL && new_node->children[1]->num_children != 0){
+                                                                /*if (new_node->children[1] != NULL && new_node->children[1]->num_children != 0){
                                                                     add_ast_node(new_node, create_new_node("FuncBody", NULL));
-                                                                }
+                                                                }*/
                                                                 $$ = add_ast_node(create_new_node("root", NULL), new_node);
                                                                 //$$ = new_node;
                                                             }
-    | FUNC ID LPAR Parameters RPAR FuncBody                 {$$ = add_ast_node(create_new_node("FuncDecl", NULL), $6);}
-    | FUNC ID LPAR Parameters RPAR Type FuncBody            {$$ = add_ast_node(create_new_node("FuncDecl", NULL), create_new_node($6, NULL));}
+    | FUNC ID LPAR Parameters RPAR FuncBody                 {
+                                                                ast_node* new_node = create_new_node("FuncDecl", NULL);
+                                                                ast_node* funcHeader =  create_new_node("FuncHeader", NULL);
+                                                                ast_node* funcParams = create_new_node("FuncParams", NULL);
+
+                                                                add_ast_node(funcHeader, create_new_node("Id", $2));
+                                                                //add_ast_node(funcHeader, create_new_node("FuncParams", NULL));
+                                                                append_list(funcParams, $4);
+                                                                add_ast_node(funcHeader, funcParams);
+                                                                add_ast_node(new_node, funcHeader);
+                                                                add_ast_node(new_node, $6);
+                                                                /*Check if funcbody has children*/
+                                                                /*if (new_node->children[1] != NULL && new_node->children[1]->num_children != 0){
+                                                                    add_ast_node(new_node, create_new_node("FuncBody", NULL));
+                                                                }*/
+                                                                $$ = add_ast_node(create_new_node("root", NULL), new_node);
+                                                            }
+    | FUNC ID LPAR Parameters RPAR Type FuncBody            {
+                                                                ast_node* new_node = create_new_node("FuncDecl", NULL);
+                                                                ast_node* funcHeader =  create_new_node("FuncHeader", NULL);
+                                                                ast_node* funcParams = create_new_node("FuncParams", NULL);
+
+                                                                add_ast_node(funcHeader, create_new_node("Id", $2));
+                                                                add_ast_node(funcHeader, create_new_node($6, NULL));
+                                                                //add_ast_node(funcHeader, create_new_node("FuncParams", NULL));
+                                                                append_list(funcParams, $4);
+                                                                add_ast_node(funcHeader, funcParams);
+                                                                add_ast_node(new_node, funcHeader);
+                                                                add_ast_node(new_node, $7);
+                                                                /*Check if funcbody has children*/
+                                                                /*if (new_node->children[1] != NULL && new_node->children[1]->num_children != 0){
+                                                                    add_ast_node(new_node, create_new_node("FuncBody", NULL));
+                                                                }*/
+                                                                $$ = add_ast_node(create_new_node("root", NULL), new_node);
+                                                            }
     | FUNC ID LPAR RPAR FuncBody                            { 
                                                                 ast_node* new_node = create_new_node("FuncDecl", NULL);
                                                                 ast_node* funcHeader =  create_new_node("FuncHeader", NULL);
@@ -218,33 +253,50 @@ FuncDeclaration: FUNC ID LPAR RPAR Type FuncBody            {
                                                                 add_ast_node(new_node, funcHeader);
                                                                 add_ast_node(new_node, $5);
                                                                 /*Check if funcbody has children*/
-                                                                if (new_node->children[1] != NULL && new_node->children[1]->num_children != 0){
+                                                                /*if (new_node->children[1] != NULL && new_node->children[1]->num_children != 0){
                                                                     add_ast_node(new_node, create_new_node("FuncBody", NULL));
-                                                                }
+                                                                }*/
                                                                 $$ = add_ast_node(create_new_node("root", NULL), new_node);
                                                                 //$$ = new_node;
                                                             }
     ;
 
 Parameters: ID Type ParametersRep                          {
-                                                                ast_node *param_decl = create_new_node("ParamDecl", NULL);
-                                                                ast_node *func_param = create_new_node("FuncParams", NULL);
-                                                                add_ast_node(param_decl, create_new_node($2, NULL));
-                                                                add_ast_node(param_decl, create_new_node("Id", $1));
-                                                                add_ast_node(func_param, param_decl);
-                                                                add_ast_node(func_param, $3);
-                                                                $$ = func_param;
+                                                                //Get list of vars
+                                                                ast_node* id_node = create_new_node("Id", $1);
+                                                                ast_node* type_node = create_new_node($2, NULL);
+                                                                ast_node *list = $3;
+                                                                ast_node *current;
+                                                                ast_node *list_ids = create_new_node("root", NULL);
+                                                                /*First parameter*/
+                                                                ast_node *paramdecl = create_new_node("ParamDecl", NULL);
+                                                                add_ast_node(paramdecl, type_node); add_ast_node(paramdecl, id_node);
+                                                                add_ast_node(list_ids, paramdecl);
+                                                                for (current = list; current != NULL; current = current->children[0]){
+                                                                    if (strcmp(current->name, "empty")==0) continue;
+                                                                    //Create ParamDecl node
+                                                                    paramdecl = create_new_node("ParamDecl", NULL);
+                                                                    //Add id and type
+                                                                    add_ast_node(paramdecl, create_new_node(current->type, NULL)); //Add var type
+                                                                    paramdecl->children[paramdecl->num_children] = create_new_node("empty", NULL);
+                                                                    copy_ast_data(paramdecl->children[paramdecl->num_children], current);
+                                                                    paramdecl->num_children += 1;
+                                                                    //Add to the list
+                                                                    list_ids->children[list_ids->num_children] = paramdecl;
+                                                                    list_ids->num_children+=1;
+                                                                }
+                                                                $$ = list_ids;
                                                             }
     ;
 
-ParametersRep:                                              {$$ = NULL;}
-    | ParametersRep COMMA ID Type                           {$$ = NULL;}
+ParametersRep:                                              {$$ = create_new_node("empty", NULL);}
+    | ParametersRep COMMA ID Type                           {$$ = add_ast_node($1, create_new_node_param("Id", $3, $4));}
     ;
 
 FuncBody: LBRACE VarsAndStatements RBRACE                   {
                                                                 //printf("came out\n");
                                                                 //print_ast_tree($2,0);
-                                                                ast_node* node = add_ast_node(create_new_node("FuncBody", NULL), $2);
+                                                                ast_node* node = append_list(create_new_node("FuncBody", NULL), $2);
                                                                 //fix_indentation(node, $2);
                                                                 $$ = node;}
     | LBRACE RBRACE                                         {$$ = create_new_node("FuncBody", NULL);}
@@ -279,11 +331,15 @@ Statement: ID ASSIGN Expr                                   {
                                                                 
                                                                 $$ = $2;
                                                             }
-    | IF Expr LBRACE StatementRep RBRACE ElseCond           {$$ = NULL;}
-    | FOR LBRACE StatementRep RBRACE                        {$$ = NULL;}
-    | FOR LBRACE StatementRep RESERVED SEMICOLON RBRACE     {$$ = NULL;}
-    | FOR Expr LBRACE StatementRep RBRACE                   {$$ = NULL;}
-    | FOR Expr LBRACE StatementRep RESERVED SEMICOLON RBRACE {$$ = NULL;}
+    | IF Expr LBRACE StatementRep RBRACE ElseCond           {
+                                                                ast_node *if_node = create_new_node("If", NULL);
+                                                                add_ast_node(if_node, $2);
+                                                                append_list(if_node, $4);
+                                                                $$ = if_node;
+                                                                //$$ = create_new_node("empty", NULL);
+                                                            }
+    | FOR LBRACE StatementRep RBRACE                        {$$ = create_new_node("empty", NULL);;}
+    | FOR Expr LBRACE StatementRep RBRACE                   {$$ = create_new_node("empty", NULL);;}
     | RETURN Expr                                           {$$ = add_ast_node(create_new_node("Return", NULL), $2);}
     | RETURN                                                {$$ = create_new_node("Return", NULL);}
     | FuncInvocation                                        {$$ = add_ast_list(create_new_node("Call", NULL), $1);}
@@ -415,7 +471,7 @@ Expr: Expr OR Expr                                          {
     | ID                                                    {$$ = create_new_node("Id", $1);}
     | FuncInvocation                                        {$$ = add_ast_list(create_new_node("Call", NULL), $1);}
     | LPAR Expr RPAR                                        {$$ = $2;}
-    | LPAR error RPAR                                       {$$ = NULL;}
+    | LPAR error RPAR                                       {$$ = create_new_node("error", NULL);}
     ;
 
 %%   
@@ -433,6 +489,21 @@ ast_node *create_new_node(char name[], char id[]){
 }
 
 
+
+ast_node *create_new_node_param(char name[], char id[], char type[]){
+    ast_node *new_node = malloc(sizeof(struct ast_node));
+    new_node->num_children = 0;
+    if (name == NULL) return NULL; //Name can't be empty
+    strcpy(new_node->name, name);
+
+    if (id != NULL) strcpy(new_node->id, id);
+    else strcpy(new_node->id, "");
+
+    if (type != NULL) strcpy(new_node->type, type);
+    else strcpy(new_node->type, "");
+
+    return new_node;
+}
 
 
 
