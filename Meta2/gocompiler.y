@@ -348,8 +348,17 @@ Statement: ID ASSIGN Expr                                   {
                                                                 $$ = if_node;
                                                                 //$$ = create_new_node("empty", NULL);
                                                             }
-    | FOR LBRACE StatementRep RBRACE                        {$$ = create_new_node("empty", NULL);;}
-    | FOR Expr LBRACE StatementRep RBRACE                   {$$ = create_new_node("empty", NULL);;}
+    | FOR LBRACE StatementRep RBRACE                        {   ast_node *for_node = create_new_node("For", NULL);
+                                                                ast_node *block = append_list(create_new_node("Block", NULL), add_ast_node(create_new_node("root",NULL), $3));
+                                                                add_ast_node(for_node, block);
+                                                                $$ = for_node;
+                                                            }
+    | FOR Expr LBRACE StatementRep RBRACE                   {   ast_node *for_node = create_new_node("For", NULL);
+                                                                add_ast_node(for_node, $2);
+                                                                ast_node *block = append_list(create_new_node("Block", NULL), add_ast_node(create_new_node("root",NULL), $4));
+                                                                add_ast_node(for_node, block);
+                                                                $$ = for_node;
+                                                            }
     | RETURN Expr                                           {$$ = add_ast_node(create_new_node("Return", NULL), $2);}
     | RETURN                                                {$$ = create_new_node("Return", NULL);}
     | FuncInvocation                                        {$$ = add_ast_list(create_new_node("Call", NULL), $1);}
