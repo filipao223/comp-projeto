@@ -10,6 +10,9 @@
     int total_lines = 1;
     int total_columns = 1;
 
+    //Add a quote marks to STRLIT
+    int isSTRLIT = 0;
+
     //Save first line and column where a possible error might occur
     int error_line_number;
     int error_column_number;
@@ -87,7 +90,11 @@ REALLIT                                 (([0-9]*\.[0-9]+)|([0-9]+\.)|([1-9]\.)|[
 "os.Args"                               { semicolon=0; total_columns += strlen(yytext); if (print_tokens==1) printf("CMDARGS\n");return CMDARGS;};
 \"                                      { error_column_number = total_columns; semicolon=0; ++total_columns; current_string[0] = '\0'; BEGIN STRING;};
 <STRING>\\(\\|n|f|r|t|(\"))             { semicolon=0; total_columns+= strlen(yytext); strcat(current_string, yytext);};
-<STRING>\"                              { semicolon=1; ++total_columns; if (print_tokens==1) printf("STRLIT(\"%s\")\n", current_string); BEGIN 0; yylval.str = strdup(yytext); return STRLIT;};
+<STRING>\"                              { semicolon=1; ++total_columns; if (print_tokens==1) printf("STRLIT(\"%s\")\n", current_string); BEGIN 0; char new_string[MAX_STR];
+        strcpy(new_string, "\""); 
+        strcat(new_string, current_string); 
+        strcat(new_string, "\"");
+        yylval.str = strdup(new_string); yytext = new_string; return STRLIT;};
 <STRING>\\"\t"+|\\" "+                  {printf("Line %d, column %d: invalid escape sequence (%c)\n", total_lines, total_columns, yytext[0]); total_columns += strlen(yytext); BEGIN ILLEGAL_ESC;};
 <STRING>\\[^"\n"]|\\                    { semicolon=0; printf("Line %d, column %d: invalid escape sequence (%s)\n", total_lines, total_columns, yytext); total_columns += strlen(yytext); BEGIN ILLEGAL_ESC;};
 <STRING>"\n"|"\r"|"\r\n"                { semicolon=0; printf("Line %d, column %d: unterminated string literal\n", total_lines, error_column_number); total_columns=1; ++total_lines; BEGIN 0;};
