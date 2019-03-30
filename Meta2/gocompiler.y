@@ -298,8 +298,19 @@ FuncBody: LBRACE VarsAndStatements RBRACE                   {
                                                                 //print_ast_tree($2,0);
                                                                 ast_node* vars_stmt = $2;
                                                                 ast_node* node;
-                                                                /*Check if list starts with 'root' node*/
-                                                                if (vars_stmt != NULL && strcmp(vars_stmt->name, "If")==0){
+                                                                /*Check if list starts with a statement or vardecl node*/
+                                                                if (vars_stmt != NULL
+                                                                    && (strcmp(vars_stmt->name, "If")==0
+                                                                        || strcmp(vars_stmt->name, "For")==0
+                                                                        || strcmp(vars_stmt->name, "Return")==0
+                                                                        || strcmp(vars_stmt->name, "Id")==0
+                                                                        || strcmp(vars_stmt->name, "Call")==0
+                                                                        || strcmp(vars_stmt->name, "ParseArgs")==0
+                                                                        || strcmp(vars_stmt->name, "Print")==0
+                                                                        || strcmp(vars_stmt->name,"VarDecl")==0
+                                                                        )
+                                                                    )
+                                                                {
                                                                     node = add_ast_node(create_new_node("FuncBody", NULL), $2);
                                                                 }
                                                                 else{
@@ -320,10 +331,15 @@ VarsAndStatements: VarDeclaration SEMICOLON                 {$$ = $1;}
                                                                 $$ = root;
                                                             }
     | VarsAndStatements Statement SEMICOLON                 {
-                                                                //ast_node *root = create_new_node("root", NULL);
-                                                                //add_ast_node(root, $2);
-                                                                //add_ast_node($1, $2);
-                                                                $$ = add_ast_node($1, $2);
+                                                                ast_node *root = create_new_node("root", NULL);
+                                                                ast_node* list = $1;
+                                                                if (list != NULL && strcmp(list->name, "root")==0){
+                                                                    append_list(root, $1);
+                                                                }
+                                                                else add_ast_node(root, list);
+                                                                add_ast_node(root, $2);
+                                                                
+                                                                $$ = root;
                                                             }
     | SEMICOLON                                             {$$ = NULL;}
     ;
@@ -345,6 +361,7 @@ Statement: ID ASSIGN Expr                                   {
                                                                 //ast_node *list = $3;
                                                                 ast_node *block = append_list(create_new_node("Block", NULL), add_ast_node(create_new_node("root", NULL), $4));
                                                                 add_ast_node(if_node, block);
+                                                                add_ast_node(if_node, $6);
                                                                 $$ = if_node;
                                                                 //$$ = create_new_node("empty", NULL);
                                                             }
@@ -361,7 +378,15 @@ Statement: ID ASSIGN Expr                                   {
                                                             }
     | RETURN Expr                                           {$$ = add_ast_node(create_new_node("Return", NULL), $2);}
     | RETURN                                                {$$ = create_new_node("Return", NULL);}
-    | FuncInvocation                                        {$$ = add_ast_list(create_new_node("Call", NULL), $1);}
+    | FuncInvocation                                        {
+                                                                ast_node *list = $1;
+                                                                ast_node* node;
+                                                                if (list != NULL && strcmp(list->name, "root")==0){
+                                                                    node = append_list(create_new_node("Call", NULL), list);
+                                                                }
+                                                                else node = add_ast_node(create_new_node("Call", NULL), list);
+                                                                $$ = node;
+                                                            }
     | ParseArgs                                             {$$ = add_ast_list(create_new_node("ParseArgs", NULL), $1);}
     | PRINT LPAR Expr RPAR                                  {$$ = add_ast_node(create_new_node("Print", NULL), $3);}
     | PRINT LPAR STRLIT RPAR                                {$$ = add_ast_node(create_new_node("Print", NULL), create_new_node("StrLit", $3));}
@@ -389,10 +414,11 @@ ParseArgs: ID COMMA BLANKID ASSIGN PARSEINT LPAR CMDARGS LSQ Expr RSQ RPAR  {
 FuncInvocation: ID LPAR RPAR                                {$$ = create_new_node("Id", $1);}
     | ID LPAR FuncInvocationExpr RPAR                       {
                                                                 ast_node *id = create_new_node("Id", $1);
-                                                                //ast_node *root = create_new_node("root", NULL);
-                                                                //add_ast_node(id, $3);
+                                                                ast_node *root = create_new_node("root", NULL);
+                                                                add_ast_node(root, id);
+                                                                add_ast_node(root, $3);
                                                                 //$$ = add_ast_node(create_new_node("root", NULL), id);
-                                                                $$ = add_ast_node(id, $3);
+                                                                $$ = root;
                                                             }
     | ID LPAR error RPAR                                    {$$ = create_new_node("error", NULL);}
     ;
@@ -489,7 +515,15 @@ Expr: Expr OR Expr                                          {
     | INTLIT                                                {sprintf(temp, "%d", $1); $$ = create_new_node("IntLit", temp);}
     | REALLIT                                               {sprintf(temp, "%f", $1); $$ = create_new_node("RealLit", temp);}
     | ID                                                    {$$ = create_new_node("Id", $1);}
-    | FuncInvocation                                        {$$ = add_ast_list(create_new_node("Call", NULL), $1);}
+    | FuncInvocation                                        {
+                                                                ast_node *list = $1;
+                                                                ast_node* node;
+                                                                if (list != NULL && strcmp(list->name, "root")==0){
+                                                                    node = append_list(create_new_node("Call", NULL), list);
+                                                                }
+                                                                else node = add_ast_node(create_new_node("Call", NULL), list);
+                                                                $$ = node;
+                                                            }
     | LPAR Expr RPAR                                        {$$ = $2;}
     | LPAR error RPAR                                       {$$ = create_new_node("error", NULL);}
     ;
@@ -576,8 +610,8 @@ ast_node *append_list(ast_node *parent, ast_node *root_node){
             copy_ast_data(parent->children[parent->num_children], current);
             copy_ast_children(parent->children[parent->num_children], current);
             parent->num_children += 1;
+            free(current);
         }
-
         return parent;
     }
 
