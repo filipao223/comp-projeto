@@ -25,8 +25,9 @@ for filename in ./*.{dgo,go}; do
         ./gocompiler -l < $filename > output.txt
     fi
     
-
-    if cmp -s "${filename%.*}.out" "output.txt"; then
+    namefile="${filename%.*}.out"
+    echo $namefile
+    if [ "$(diff -y --suppress-common-lines $namefile output.txt | wc -l)" -eq "0" ]; then
         echo "Files are the same"
         ((same++))
     else

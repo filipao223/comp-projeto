@@ -1,0 +1,14 @@
+package main;
+
+var (a,b int;);
+var c,d int;
+
+func main(){
+    a = 1+1;
+    somecall(param);
+    n,_ = strconv.Atoi(os.Args[1])
+    b = 10*10;
+    //{a=1; b=2;}
+}
+
+func mkei() int {}
