@@ -109,7 +109,8 @@
 %left LT GT EQ NE LE GE 
 %left FUNC VAR
 %right PLUS MINUS
-%left STAR DIV MOD
+%left ADD SUB
+%left STAR DIV MOD MUL
 %left LPAR RPAR
 
 %type <node> Expr Program Declarations DeclarationsRep VarDeclaration VarSpec VarSpecRep FuncDeclaration Parameters ParametersRep FuncBody
@@ -138,7 +139,8 @@ Declarations:                                               {$$ = NULL;}
     ;
 
 DeclarationsRep: DeclarationsRep VarDeclaration SEMICOLON   {
-                                                                
+                                                                //if ($1==NULL) $$ = $2;
+                                                                //else $$ = append_list($2, $1);
                                                                 $$ = append_list($1, $2);
 
                                                             }
@@ -160,12 +162,17 @@ VarSpec: ID VarSpecRep Type                                 {
                                                                 ast_node *type_node = create_new_node($3, NULL);
                                                                 //Get list of vars
                                                                 ast_node *list = $2;
+                                                                //printf("LIST:\n\n");
+                                                                //print_ast_tree(list, 0);
+                                                                //printf("\n\n");
                                                                 ast_node *current;
                                                                 ast_node *list_ids = create_new_node("root", NULL);
                                                                 ast_node *vardecl = create_new_node("VarDecl", NULL);
                                                                 add_ast_node(vardecl, type_node); add_ast_node(vardecl, id_node);
                                                                 add_ast_node(list_ids, vardecl);
-                                                                for (current = list; current != NULL; current = current->children[0]){
+                                                                int i=0;
+                                                                ast_node *parent = NULL;
+                                                                for (current = list; current != NULL;){
                                                                     if (strcmp(current->name, "empty")==0) continue;
                                                                     //Create VarDecl node
                                                                     vardecl = create_new_node("VarDecl", NULL);
@@ -177,13 +184,36 @@ VarSpec: ID VarSpecRep Type                                 {
                                                                     //Add to the list
                                                                     list_ids->children[list_ids->num_children] = vardecl;
                                                                     list_ids->num_children+=1;
+                                                                    
+                                                                    /*Next iteration*/
+                                                                    if (current->children[0]!=NULL)
+                                                                    {
+                                                                        parent = current;
+                                                                        current = current->children[0];
+                                                                    }
+                                                                    else if (parent!=NULL)
+                                                                    {
+                                                                        if (parent->num_children<=1) break;
+                                                                        else 
+                                                                        {
+                                                                            current = parent->children[i+1];
+                                                                            i+=1;
+                                                                        }
+                                                                    }
+                                                                    else break;
+                                                                    
                                                                 }
                                                                 $$ = list_ids;
                                                             }
     ;
 
 VarSpecRep:                                                 {$$ = NULL;}
-    | VarSpecRep COMMA ID                                   {$$ = add_ast_node(create_new_node("Id", $3), $1);}
+    | VarSpecRep COMMA ID                                   {
+                                                                if ($1==NULL) $$ = create_new_node("Id", $3);
+                                                                else $$ = add_ast_node($1, create_new_node("Id", $3));
+                                                                //print_ast_tree($$, 0);
+                                                                //printf("\n\n");
+                                                            }
     ; 
 
 Type: INT                                                   {$$ = "Int";}
@@ -287,9 +317,13 @@ FuncBody: LBRACE VarsAndStatements RBRACE                   {
                                                                         )
                                                                     )
                                                                 {
+                                                                    //printf("Not a list\n");
                                                                     node = add_ast_node(create_new_node("FuncBody", NULL), $2);
                                                                 }
                                                                 else{
+                                                                    //printf("It's a list\n");
+                                                                    //printf("List contains:\n");
+                                                                    //print_ast_tree($2, 0);
                                                                     node = append_list(create_new_node("FuncBody", NULL), $2);
                                                                 }
                                                                 $$ = node;}
@@ -325,6 +359,9 @@ Statement: ID ASSIGN Expr                                   {
                                                             }
     | LBRACE StatementRep RBRACE                            {
                                                                 ast_node *list = add_ast_node(create_new_node("root", NULL), $2);
+                                                                //printf("Contents of $2:\n\n\n");
+                                                                //print_ast_tree($2, 0);
+                                                                //printf("\n\n");
                                                                 if (list->children[0] != NULL && list->children[0]->num_children>1){
                                                                     ast_node* block = append_list(create_new_node("Block", NULL), list);
                                                                     $$ = block;
@@ -339,7 +376,8 @@ Statement: ID ASSIGN Expr                                   {
                                                                 add_ast_node(if_node, $6);
                                                                 $$ = if_node;
                                                             }
-    | FOR LBRACE StatementRep RBRACE                        {   ast_node *for_node = create_new_node("For", NULL);
+    | FOR LBRACE StatementRep RBRACE                        {   
+                                                                ast_node *for_node = create_new_node("For", NULL);
                                                                 ast_node *block = append_list(create_new_node("Block", NULL), add_ast_node(create_new_node("root",NULL), $3));
                                                                 add_ast_node(for_node, block);
                                                                 $$ = for_node;
@@ -368,7 +406,12 @@ Statement: ID ASSIGN Expr                                   {
     ;
 
 StatementRep:                                               {$$ = NULL;}
-    | StatementRep Statement SEMICOLON                      {$$ = add_ast_node($2, $1);}
+    | StatementRep Statement SEMICOLON                      {
+                                                                if ($1==NULL) $$ = $2;
+                                                                else $$ = add_ast_node($1, $2);
+                                                                //else $$ = add_ast_node($1, $2);
+                                                                
+                                                            }
     ;
 
 ElseCond:                                                   {$$ = create_new_node("Block", NULL);}
@@ -499,7 +542,7 @@ Expr: Expr OR Expr                                          {
 
 %%   
 
-/*
+/******************************************************************************
 * Mallocs and returns a new struct ast_node.
 * 
 * Param:
@@ -507,7 +550,7 @@ Expr: Expr OR Expr                                          {
 *   id: Optional string for nodes that also have a value (int, float, string).
 *
 * Returns: Malloc'd struct ast_node.
-*/
+******************************************************************************/
 ast_node *create_new_node(char name[], char id[]){
     ast_node *new_node = malloc(sizeof(struct ast_node));
     new_node->num_children = 0;
@@ -521,16 +564,17 @@ ast_node *create_new_node(char name[], char id[]){
 }
 
 
-/*
-* Mallocs and returns a new struct ast_node, also filling in a type, for function parameters.
-* 
-* Param:
-*   name: Name of the AST node block (Print, Assign, If, ...);
-*   id: Optional string for nodes that also have a value (int, float, string).
-*   type: Type (int, float32, string) of the parameter
-*
-* Returns: Malloc'd struct ast_node.
-*/
+/**********************************************************************************************
+ * Mallocs and returns a new struct ast_node, also filling in a type, for function parameters.
+ * 
+ * Param:
+ *   name: Name of the AST node block (Print, Assign, If, ...);
+ *   id: Optional string for nodes that also have a value (int, float, string).
+ *   type: Type (int, float32, string) of the parameter
+ *
+ * Returns: Malloc'd struct ast_node.
+ *
+ **********************************************************************************************/
 ast_node *create_new_node_param(char name[], char id[], char type[]){
     ast_node *new_node = malloc(sizeof(struct ast_node));
     new_node->num_children = 0;
