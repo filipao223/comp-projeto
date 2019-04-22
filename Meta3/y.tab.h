@@ -34,7 +34,7 @@
 # define YY_YY_Y_TAB_H_INCLUDED
 /* Debug traces.  */
 #ifndef YYDEBUG
-# define YYDEBUG 0
+# define YYDEBUG 1
 #endif
 #if YYDEBUG
 extern int yydebug;
@@ -146,7 +146,7 @@ extern int yydebug;
 
 union YYSTYPE
 {
-#line 120 "gocompiler.y" /* yacc.c:1909  */
+#line 122 "gocompiler.y" /* yacc.c:1909  */
 
     char *str;
     int int_value;

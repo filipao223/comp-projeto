@@ -17,7 +17,8 @@
     #define MAX_AST_NODE_ID 1024
     #define MAX_AST_NODE_CHILDREN 1024
 
-    int yydebug=0;
+    int yydebug=1;
+    int i;
 
     //symtab tab[NSYMS];
 
@@ -39,6 +40,7 @@
         struct ast_node *parent;
         struct ast_node *children[MAX_AST_NODE_CHILDREN];
         int num_children;
+        int has_next_node;
     } ast_node;
 
     //AST functions
@@ -345,9 +347,10 @@ VarsAndStatements: VarDeclaration SEMICOLON                 {$$ = $1;}
                                                                     append_list(root, $1);
                                                                 }
                                                                 else add_ast_node(root, list);
-                                                                add_ast_node(root, $2);
+                                                                if ($2 == NULL) $$ = NULL;
+                                                                else $$ = add_ast_node(root, $2);
                                                                 
-                                                                $$ = root;
+                                                                //$$ = root;
                                                             }
     | SEMICOLON                                             {$$ = NULL;}
     ;
@@ -359,32 +362,384 @@ Statement: ID ASSIGN Expr                                   {
                                                             }
     | LBRACE StatementRep RBRACE                            {
                                                                 ast_node *list = add_ast_node(create_new_node("root", NULL), $2);
-                                                                //printf("Contents of $2:\n\n\n");
-                                                                //print_ast_tree($2, 0);
-                                                                //printf("\n\n");
-                                                                if (list->children[0] != NULL && list->children[0]->num_children>1){
-                                                                    ast_node* block = append_list(create_new_node("Block", NULL), list);
-                                                                    $$ = block;
+                                                                if ($2!=NULL){
+                                                                    /*List is in format: child1
+                                                                                     ..child1_child1
+                                                                                     ..next
+                                                                                     ..child2
+                                                                                     ....chiild2_child1
+                                                                                     ..child3
+                                                                                     ....child3_child1
+                                                                    Fix this, set children after 'next' as children of parent node*/
+                                                                    ast_node* new_list = create_new_node("root", NULL);
+                                                                    ast_node *current = list->children[0]->children[0];
+                                                                    i=0;
+
+                                                                    /*printf("Old list:\n");
+                                                                    print_ast_tree(list, 0);
+                                                                    printf("\n\n");*/
+
+                                                                    //Copy first children of the list
+                                                                    ast_node *first_child = create_new_node("new", NULL);
+                                                                    copy_ast_data(first_child, list->children[0]);
+
+                                                                    /*Find 'next' node*/
+                                                                    for (i=0; current!=NULL ;){
+                                                                        if (strcmp(current->name, "next")==0){
+                                                                            break;
+                                                                        }
+
+                                                                        ast_node *new_node = create_new_node("new", NULL);
+                                                                        copy_ast_data(new_node, current); copy_ast_children(new_node, current);
+                                                                        add_ast_node(first_child, new_node);
+
+                                                                        i+=1;
+                                                                        current = list->children[0]->children[i];
+                                                                    }
+
+                                                                    add_ast_node(new_list, first_child);
+
+                                                                    /*printf("SO FAR, LIST HAS:\n\n");
+                                                                    print_ast_tree(new_list, 0);
+                                                                    printf("\n\n");
+
+                                                                    printf("Reached here 1\n");
+                                                                    printf("Name: %s\n", current->name);*/
+
+                                                                    /*If next was found*/
+                                                                    if (current!=NULL && strcmp(current->name, "next")==0){
+                                                                        current = list->children[0]->children[i+1]; //Node after 'next'
+                                                                        /*printf("CUrrent after next: %s\n", current->name);
+                                                                        printf("And its child: %s | %s\n\n", current->children[0]->name, current->children[0]->id);*/
+                                                                        for (; current!=NULL; ){
+
+                                                                            /*printf("entered for\n");
+                                                                            printf("Name: %s\n", current->name);
+
+                                                                            printf("\nI is %d\n", i);*/
+
+                                                                            ast_node *new_node = create_new_node("new", NULL);
+                                                                            copy_ast_data(new_node, current); copy_ast_children(new_node, current);
+                                                                            add_ast_node(new_list, new_node);
+
+                                                                            i+=1;
+                                                                            current=list->children[0]->children[i+1];
+                                                                        }
+
+                                                                        /*printf("\n\n\nNEW LIST\n\n\n");
+                                                                        print_ast_tree(new_list, 0);
+                                                                        printf("\n\n\n");*/
+
+                                                                        /*Free old list*/
+                                                                        //free_ast_tree(list);
+
+                                                                        if (new_list->children[0] != NULL && new_list->num_children>1){
+                                                                            ast_node* block = append_list(create_new_node("Block", NULL), new_list);
+                                                                            $$ = block;
+                                                                        }
+                                                                        else $$ = new_list;
+                                                                    }
+                                                                    else{
+                                                                        if (list->children[0] != NULL && list->children[0]->num_children>1){
+                                                                            ast_node* block = append_list(create_new_node("Block", NULL), list);
+                                                                            $$ = block;
+                                                                        }
+                                                                        else $$ = list;
+                                                                    }
                                                                 }
-                                                                else $$ = list;
+                                                                else $$ = NULL;
+                                                                
                                                             }
     | IF Expr LBRACE StatementRep RBRACE ElseCond           {
                                                                 ast_node *if_node = create_new_node("If", NULL);
                                                                 add_ast_node(if_node, $2);
-                                                                ast_node *block = append_list(create_new_node("Block", NULL), add_ast_node(create_new_node("root", NULL), $4));
+
+                                                                //printf("Reached 1\n");
+                                                                
+                                                                ast_node *block = NULL;
+                                                                ast_node *list = add_ast_node(create_new_node("root", NULL), $4);
+                                                                //printf("Reached 2\n");
+                                                                
+                                                                if ($4!=NULL){
+                                                                    /*List is in format: child1
+                                                                                     ..child1_child1
+                                                                                     ..next
+                                                                                     ..child2
+                                                                                     ....chiild2_child1
+                                                                                     ..child3
+                                                                                     ....child3_child1
+                                                                    Fix this, set children after 'next' as children of parent node*/
+                                                                    ast_node* new_list = create_new_node("root", NULL);
+                                                                    ast_node *current = list->children[0]->children[0];
+                                                                    i=0;
+                                                                    //printf("Reached 3\n");
+
+                                                                    /*printf("Old list:\n");
+                                                                    print_ast_tree(list, 0);
+                                                                    printf("\n\n");*/
+
+                                                                    //Copy first children of the list
+                                                                    ast_node *first_child = create_new_node("new", NULL);
+                                                                    copy_ast_data(first_child, list->children[0]);
+
+                                                                    /*Find 'next' node*/
+                                                                    for (i=0; current!=NULL ;){
+                                                                        if (strcmp(current->name, "next")==0){
+                                                                            break;
+                                                                        }
+
+                                                                        ast_node *new_node = create_new_node("new", NULL);
+                                                                        copy_ast_data(new_node, current); copy_ast_children(new_node, current);
+                                                                        add_ast_node(first_child, new_node);
+
+                                                                        i+=1;
+                                                                        current = list->children[0]->children[i];
+                                                                    }
+
+                                                                    add_ast_node(new_list, first_child);
+
+                                                                    /*printf("SO FAR, LIST HAS:\n\n");
+                                                                    print_ast_tree(new_list, 0);
+                                                                    printf("\n\n");
+
+                                                                    printf("Reached here 1\n");
+                                                                    printf("Name: %s\n", current->name);*/
+
+                                                                    /*If next was found*/
+                                                                    //printf("Reached 3\n");
+                                                                    if (current!=NULL && strcmp(current->name, "next")==0){
+                                                                        current = list->children[0]->children[i+1]; //Node after 'next'
+                                                                        /*printf("CUrrent after next: %s\n", current->name);
+                                                                        printf("And its child: %s | %s\n\n", current->children[0]->name, current->children[0]->id);*/
+                                                                        for (; current!=NULL; ){
+
+                                                                            /*printf("entered for\n");
+                                                                            printf("Name: %s\n", current->name);
+
+                                                                            printf("\nI is %d\n", i);*/
+
+                                                                            ast_node *new_node = create_new_node("new", NULL);
+                                                                            copy_ast_data(new_node, current); copy_ast_children(new_node, current);
+                                                                            add_ast_node(new_list, new_node);
+
+                                                                            i+=1;
+                                                                            current=list->children[0]->children[i+1];
+                                                                        }
+
+                                                                        /*printf("\n\n\nNEW LIST\n\n\n");
+                                                                        print_ast_tree(new_list, 0);
+                                                                        printf("\n\n\n");*/
+
+                                                                        /*Free old list*/
+                                                                        //free_ast_tree(list);
+
+                                                                        //printf("Reached 4\n");
+                                                                        block = append_list(create_new_node("Block", NULL), new_list);
+                                                                        //printf("Reached 5\n");
+
+                                                                    }
+                                                                    else {
+                                                                        //printf("Reached 6\n");
+                                                                        block = append_list(create_new_node("Block", NULL), add_ast_node(create_new_node("root", NULL), $4));
+                                                                        //printf("Reached 7\n");
+                                                                    }
+                                                                }
+
+                                                                if (block==NULL) block = append_list(create_new_node("Block", NULL), add_ast_node(create_new_node("root", NULL), $4));
                                                                 add_ast_node(if_node, block);
                                                                 add_ast_node(if_node, $6);
                                                                 $$ = if_node;
                                                             }
     | FOR LBRACE StatementRep RBRACE                        {   
                                                                 ast_node *for_node = create_new_node("For", NULL);
-                                                                ast_node *block = append_list(create_new_node("Block", NULL), add_ast_node(create_new_node("root",NULL), $3));
+
+                                                                ast_node *block = NULL;
+                                                                ast_node *list = add_ast_node(create_new_node("root", NULL), $3);
+                                                                //printf("Reached 2\n");
+                                                                
+                                                                if ($3!=NULL){
+                                                                    /*List is in format: child1
+                                                                                     ..child1_child1
+                                                                                     ..next
+                                                                                     ..child2
+                                                                                     ....chiild2_child1
+                                                                                     ..child3
+                                                                                     ....child3_child1
+                                                                    Fix this, set children after 'next' as children of parent node*/
+                                                                    ast_node* new_list = create_new_node("root", NULL);
+                                                                    ast_node *current = list->children[0]->children[0];
+                                                                    i=0;
+                                                                    //printf("Reached 3\n");
+
+                                                                    /*printf("Old list:\n");
+                                                                    print_ast_tree(list, 0);
+                                                                    printf("\n\n");*/
+
+                                                                    //Copy first children of the list
+                                                                    ast_node *first_child = create_new_node("new", NULL);
+                                                                    copy_ast_data(first_child, list->children[0]);
+
+                                                                    /*Find 'next' node*/
+                                                                    for (i=0; current!=NULL ;){
+                                                                        if (strcmp(current->name, "next")==0){
+                                                                            break;
+                                                                        }
+
+                                                                        ast_node *new_node = create_new_node("new", NULL);
+                                                                        copy_ast_data(new_node, current); copy_ast_children(new_node, current);
+                                                                        add_ast_node(first_child, new_node);
+
+                                                                        i+=1;
+                                                                        current = list->children[0]->children[i];
+                                                                    }
+
+                                                                    add_ast_node(new_list, first_child);
+
+                                                                    /*printf("SO FAR, LIST HAS:\n\n");
+                                                                    print_ast_tree(new_list, 0);
+                                                                    printf("\n\n");
+
+                                                                    printf("Reached here 1\n");
+                                                                    printf("Name: %s\n", current->name);*/
+
+                                                                    /*If next was found*/
+                                                                    //printf("Reached 3\n");
+                                                                    if (current!=NULL && strcmp(current->name, "next")==0){
+                                                                        current = list->children[0]->children[i+1]; //Node after 'next'
+                                                                        /*printf("CUrrent after next: %s\n", current->name);
+                                                                        printf("And its child: %s | %s\n\n", current->children[0]->name, current->children[0]->id);*/
+                                                                        for (; current!=NULL; ){
+
+                                                                            /*printf("entered for\n");
+                                                                            printf("Name: %s\n", current->name);
+
+                                                                            printf("\nI is %d\n", i);*/
+
+                                                                            ast_node *new_node = create_new_node("new", NULL);
+                                                                            copy_ast_data(new_node, current); copy_ast_children(new_node, current);
+                                                                            add_ast_node(new_list, new_node);
+
+                                                                            i+=1;
+                                                                            current=list->children[0]->children[i+1];
+                                                                        }
+
+                                                                        /*printf("\n\n\nNEW LIST\n\n\n");
+                                                                        print_ast_tree(new_list, 0);
+                                                                        printf("\n\n\n");*/
+
+                                                                        /*Free old list*/
+                                                                        //free_ast_tree(list);
+
+                                                                        //printf("Reached 4\n");
+                                                                        block = append_list(create_new_node("Block", NULL), new_list);
+                                                                        //printf("Reached 5\n");
+
+                                                                    }
+                                                                    else {
+                                                                        //printf("Reached 6\n");
+                                                                        block = append_list(create_new_node("Block", NULL), add_ast_node(create_new_node("root", NULL), $3));
+                                                                        //printf("Reached 7\n");
+                                                                    }
+                                                                }
+
+                                                                if (block==NULL) block = append_list(create_new_node("Block", NULL), add_ast_node(create_new_node("root", NULL), $3));
                                                                 add_ast_node(for_node, block);
                                                                 $$ = for_node;
                                                             }
     | FOR Expr LBRACE StatementRep RBRACE                   {   ast_node *for_node = create_new_node("For", NULL);
                                                                 add_ast_node(for_node, $2);
-                                                                ast_node *block = append_list(create_new_node("Block", NULL), add_ast_node(create_new_node("root",NULL), $4));
+                                                                
+                                                                ast_node *block = NULL;
+                                                                ast_node *list = add_ast_node(create_new_node("root", NULL), $4);
+                                                                //printf("Reached 2\n");
+                                                                
+                                                                if ($4!=NULL){
+                                                                    /*List is in format: child1
+                                                                                     ..child1_child1
+                                                                                     ..next
+                                                                                     ..child2
+                                                                                     ....chiild2_child1
+                                                                                     ..child3
+                                                                                     ....child3_child1
+                                                                    Fix this, set children after 'next' as children of parent node*/
+                                                                    ast_node* new_list = create_new_node("root", NULL);
+                                                                    ast_node *current = list->children[0]->children[0];
+                                                                    i=0;
+                                                                    //printf("Reached 3\n");
+
+                                                                    /*printf("Old list:\n");
+                                                                    print_ast_tree(list, 0);
+                                                                    printf("\n\n");*/
+
+                                                                    //Copy first children of the list
+                                                                    ast_node *first_child = create_new_node("new", NULL);
+                                                                    copy_ast_data(first_child, list->children[0]);
+
+                                                                    /*Find 'next' node*/
+                                                                    for (i=0; current!=NULL ;){
+                                                                        if (strcmp(current->name, "next")==0){
+                                                                            break;
+                                                                        }
+
+                                                                        ast_node *new_node = create_new_node("new", NULL);
+                                                                        copy_ast_data(new_node, current); copy_ast_children(new_node, current);
+                                                                        add_ast_node(first_child, new_node);
+
+                                                                        i+=1;
+                                                                        current = list->children[0]->children[i];
+                                                                    }
+
+                                                                    add_ast_node(new_list, first_child);
+
+                                                                    /*printf("SO FAR, LIST HAS:\n\n");
+                                                                    print_ast_tree(new_list, 0);
+                                                                    printf("\n\n");
+
+                                                                    printf("Reached here 1\n");
+                                                                    printf("Name: %s\n", current->name);*/
+
+                                                                    /*If next was found*/
+                                                                    //printf("Reached 3\n");
+                                                                    if (current!=NULL && strcmp(current->name, "next")==0){
+                                                                        current = list->children[0]->children[i+1]; //Node after 'next'
+                                                                        /*printf("CUrrent after next: %s\n", current->name);
+                                                                        printf("And its child: %s | %s\n\n", current->children[0]->name, current->children[0]->id);*/
+                                                                        for (; current!=NULL; ){
+
+                                                                            /*printf("entered for\n");
+                                                                            printf("Name: %s\n", current->name);
+
+                                                                            printf("\nI is %d\n", i);*/
+
+                                                                            ast_node *new_node = create_new_node("new", NULL);
+                                                                            copy_ast_data(new_node, current); copy_ast_children(new_node, current);
+                                                                            add_ast_node(new_list, new_node);
+
+                                                                            i+=1;
+                                                                            current=list->children[0]->children[i+1];
+                                                                        }
+
+                                                                        /*printf("\n\n\nNEW LIST\n\n\n");
+                                                                        print_ast_tree(new_list, 0);
+                                                                        printf("\n\n\n");*/
+
+                                                                        /*Free old list*/
+                                                                        //free_ast_tree(list);
+
+                                                                        //printf("Reached 4\n");
+                                                                        block = append_list(create_new_node("Block", NULL), new_list);
+                                                                        //printf("Reached 5\n");
+
+                                                                    }
+                                                                    else {
+                                                                        //printf("Reached 6\n");
+                                                                        block = append_list(create_new_node("Block", NULL), add_ast_node(create_new_node("root", NULL), $4));
+                                                                        //printf("Reached 7\n");
+                                                                    }
+                                                                }
+
+                                                                if (block==NULL) block = append_list(create_new_node("Block", NULL), add_ast_node(create_new_node("root", NULL), $4));
+
                                                                 add_ast_node(for_node, block);
                                                                 $$ = for_node;
                                                             }
@@ -408,14 +763,113 @@ Statement: ID ASSIGN Expr                                   {
 StatementRep:                                               {$$ = NULL;}
     | StatementRep Statement SEMICOLON                      {
                                                                 if ($1==NULL) $$ = $2;
-                                                                else $$ = add_ast_node($1, $2);
+                                                                else{
+                                                                    /*If node doesn't yet have a 'next' node*/
+                                                                    if ($1->has_next_node!=1){
+                                                                        add_ast_node($1, create_new_node("next", NULL));
+                                                                        $1->has_next_node=1;
+                                                                    }
+                                                                    $$ = add_ast_node($1, $2);
+                                                                }
                                                                 //else $$ = add_ast_node($1, $2);
                                                                 
                                                             }
     ;
 
 ElseCond:                                                   {$$ = create_new_node("Block", NULL);}
-    | ELSE LBRACE StatementRep RBRACE                       {$$ = append_list(create_new_node("Block", NULL), add_ast_node(create_new_node("root", NULL), $3));}
+    | ELSE LBRACE StatementRep RBRACE                       {
+                                                                ast_node *block = NULL;
+                                                                ast_node *list = add_ast_node(create_new_node("root", NULL), $3);
+                                                                //printf("Reached 2\n");
+                                                                
+                                                                if ($3!=NULL){
+                                                                    /*List is in format: child1
+                                                                                     ..child1_child1
+                                                                                     ..next
+                                                                                     ..child2
+                                                                                     ....chiild2_child1
+                                                                                     ..child3
+                                                                                     ....child3_child1
+                                                                    Fix this, set children after 'next' as children of parent node*/
+                                                                    ast_node* new_list = create_new_node("root", NULL);
+                                                                    ast_node *current = list->children[0]->children[0];
+                                                                    i=0;
+                                                                    //printf("Reached 3\n");
+
+                                                                    /*printf("Old list:\n");
+                                                                    print_ast_tree(list, 0);
+                                                                    printf("\n\n");*/
+
+                                                                    //Copy first children of the list
+                                                                    ast_node *first_child = create_new_node("new", NULL);
+                                                                    copy_ast_data(first_child, list->children[0]);
+
+                                                                    /*Find 'next' node*/
+                                                                    for (i=0; current!=NULL ;){
+                                                                        if (strcmp(current->name, "next")==0){
+                                                                            break;
+                                                                        }
+
+                                                                        ast_node *new_node = create_new_node("new", NULL);
+                                                                        copy_ast_data(new_node, current); copy_ast_children(new_node, current);
+                                                                        add_ast_node(first_child, new_node);
+
+                                                                        i+=1;
+                                                                        current = list->children[0]->children[i];
+                                                                    }
+
+                                                                    add_ast_node(new_list, first_child);
+
+                                                                    /*printf("SO FAR, LIST HAS:\n\n");
+                                                                    print_ast_tree(new_list, 0);
+                                                                    printf("\n\n");
+
+                                                                    printf("Reached here 1\n");
+                                                                    printf("Name: %s\n", current->name);*/
+
+                                                                    /*If next was found*/
+                                                                    //printf("Reached 3\n");
+                                                                    if (current!=NULL && strcmp(current->name, "next")==0){
+                                                                        current = list->children[0]->children[i+1]; //Node after 'next'
+                                                                        /*printf("CUrrent after next: %s\n", current->name);
+                                                                        printf("And its child: %s | %s\n\n", current->children[0]->name, current->children[0]->id);*/
+                                                                        for (; current!=NULL; ){
+
+                                                                            /*printf("entered for\n");
+                                                                            printf("Name: %s\n", current->name);
+
+                                                                            printf("\nI is %d\n", i);*/
+
+                                                                            ast_node *new_node = create_new_node("new", NULL);
+                                                                            copy_ast_data(new_node, current); copy_ast_children(new_node, current);
+                                                                            add_ast_node(new_list, new_node);
+
+                                                                            i+=1;
+                                                                            current=list->children[0]->children[i+1];
+                                                                        }
+
+                                                                        /*printf("\n\n\nNEW LIST\n\n\n");
+                                                                        print_ast_tree(new_list, 0);
+                                                                        printf("\n\n\n");*/
+
+                                                                        /*Free old list*/
+                                                                        //free_ast_tree(list);
+
+                                                                        //printf("Reached 4\n");
+                                                                        block = append_list(create_new_node("Block", NULL), new_list);
+                                                                        //printf("Reached 5\n");
+
+                                                                    }
+                                                                    else {
+                                                                        //printf("Reached 6\n");
+                                                                        block = append_list(create_new_node("Block", NULL), add_ast_node(create_new_node("root", NULL), $3));
+                                                                        //printf("Reached 7\n");
+                                                                    }
+                                                                }
+
+                                                                if (block==NULL) block = append_list(create_new_node("Block", NULL), add_ast_node(create_new_node("root", NULL), $3));
+                                                                $$ = block;
+                                                            }
     ;
 
 ParseArgs: ID COMMA BLANKID ASSIGN PARSEINT LPAR CMDARGS LSQ Expr RSQ RPAR  {
@@ -578,6 +1032,7 @@ ast_node *create_new_node(char name[], char id[]){
 ast_node *create_new_node_param(char name[], char id[], char type[]){
     ast_node *new_node = malloc(sizeof(struct ast_node));
     new_node->num_children = 0;
+    new_node->has_next_node = 0;
     if (name == NULL) return NULL; //Name can't be empty
     strcpy(new_node->name, name);
 
