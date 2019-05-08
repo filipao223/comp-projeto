@@ -30,7 +30,7 @@ typedef struct symbol_table{
 } Symbol_table;
 
 //Symbol node
-typedef struct Symbol_node{
+typedef struct symbol_node{
     char name[MAX_AST_NODE_NAME];
     char rtype[MAX_AST_NODE_NAME];
     char ptype[MAX_AST_NODE_NAME];

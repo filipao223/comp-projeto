@@ -29,6 +29,9 @@
     ast_node *root = NULL;
     //AST current node
     ast_node *current = NULL;
+
+    //Symbol table head node
+    Symbol_table *head = NULL;
 %}
 
 //Tokens
@@ -988,9 +991,20 @@ int main(int argc, char** argv) {
     }
     else{
         print_tokens=0; //Dont print lex output | Set lex file print_tokens flag as 0
+        /*Create a new symbol table*/
+        head = malloc(sizeof (struct symbol_table));
+        strcpy(head->name, "global");
+        head->next_table = NULL; head->child = NULL;
+        insert_new_child(head, "global", "name1", "test", "test");
+        insert_new_table(head, "table1(test)");
+
+        /*Parse*/
         yyparse();
         if (print_tree==1) print_ast_tree(root, 0);
+        printf("\n\n");
+        print_symbol_table(head);
         free_ast_tree(root);
+        free_symbol_table(head);
     }
     return 0;
 } 
