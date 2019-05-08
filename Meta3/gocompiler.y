@@ -995,11 +995,12 @@ int main(int argc, char** argv) {
         head = malloc(sizeof (struct symbol_table));
         strcpy(head->name, "global");
         head->next_table = NULL; head->child = NULL;
-        insert_new_child(head, "global", "name1", "test", "test");
-        insert_new_table(head, "table1(test)");
+        //insert_new_child(head, "global", "name1", "test", "test");
+        //insert_new_table(head, "table1(test)");
 
         /*Parse*/
         yyparse();
+        check_program(head, root);
         if (print_tree==1) print_ast_tree(root, 0);
         printf("\n\n");
         print_symbol_table(head);
