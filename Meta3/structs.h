@@ -10,6 +10,8 @@
 
 #define MAX_SYMBOL_TABLE_NAME 1024
 
+#define MAX_PARAMS 15
+
 
 //AST
 typedef struct ast_node{
@@ -37,5 +39,12 @@ typedef struct symbol_node{
     struct symbol_node *next;
 } Symbol_node;
 
+
+//Simple linked list (for function parameters)
+typedef struct list{
+    char name[MAX_AST_NODE_NAME];
+    char type[MAX_AST_NODE_NAME];
+    struct list *next;
+} List;
 
 #endif

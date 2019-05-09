@@ -979,10 +979,12 @@ int main(int argc, char** argv) {
 
     int lex_only = 0;
     int print_tree = 0;
+    int print_symbols = 0;
 
     if (argc!=1){
         if (strcmp(argv[1], "-l")==0) lex_only = 1;
         if (strcmp(argv[1], "-t")==0) print_tree = 1;
+        if (strcmp(argv[1], "-s")==0) print_symbols = 1;
         if (argc == 3 && strcmp(argv[2], "-d")==0) print_tokens=0; //For debugging only
     }
 
@@ -995,15 +997,19 @@ int main(int argc, char** argv) {
         head = malloc(sizeof (struct symbol_table));
         strcpy(head->name, "global");
         head->next_table = NULL; head->child = NULL;
-        //insert_new_child(head, "global", "name1", "test", "test");
-        //insert_new_table(head, "table1(test)");
 
         /*Parse*/
         yyparse();
+
+        /*Semantic analysis*/
         check_program(head, root);
+
         if (print_tree==1) print_ast_tree(root, 0);
-        printf("\n\n");
-        print_symbol_table(head);
+        if (print_symbols==1){
+            printf("\n\n");
+            print_symbol_table(head);
+        }
+
         free_ast_tree(root);
         free_symbol_table(head);
     }
