@@ -109,7 +109,7 @@ func main() {
 
     fa = .1; fb = .1; fc = .1; fd = .1; fe = .1;
 
-    var mia, mib int;
+    //var mia, mib int;
 
     for ia > ib && fcf() {
         if fcb() > fcj(

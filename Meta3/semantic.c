@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "structs.h"
 #include "semantic.h"
@@ -53,14 +54,15 @@ int insert_new_table(Symbol_table* head, char name[]){
  *      table[]: Name of the table where the symbol will be appended;
  *      name[]: Name of the symbol;
  *      rtype[]: Return type of the symbol;
- *      ptype[]: Parameter type of the symbol.
+ *      ptype[]: Parameter type of the symbol;
+ *      is_param: If this symbol is a function parameter.
  * 
  * Returns:
  *      -1 if the table wasn't found, 1 if the symbol was appended and 0 if the symbol
  *          was already appended.
  * 
  ******************************************************************************************/
-int insert_new_child(Symbol_table *head, char table[], char name[], char ptype[], char rtype[]){
+int insert_new_child(Symbol_table *head, char table[], char name[], char ptype[], char rtype[], int is_param){
     /*Find correct table*/
     Symbol_table* current = head;
     for (; current != NULL; current = current->next_table){
@@ -85,6 +87,7 @@ int insert_new_child(Symbol_table *head, char table[], char name[], char ptype[]
     /*Insert new symbol node*/
     Symbol_node* new_node = malloc(sizeof (struct symbol_node));
     strcpy(new_node->name, name); strcpy(new_node->rtype, rtype); strcpy(new_node->ptype, ptype);
+    new_node->is_param = is_param;
     new_node->next = NULL;
     
     if (curr_child != NULL) curr_child->next = new_node;
@@ -111,6 +114,8 @@ void store_func_params(List *head, ast_node *params){
     ast_node *current;
     List *next_param, *new_param = NULL;
 
+    printf("%d parameters\n", params->num_children);
+
     for (int i=0; i<params->num_children; i++){
         current = params->children[i];
 
@@ -118,6 +123,7 @@ void store_func_params(List *head, ast_node *params){
 
         /*Store name and type of the parameter*/
         strcpy(new_param->name, current->children[1]->id); strcpy(new_param->type, current->children[0]->name);
+        new_param->type[0] = tolower(new_param->type[0]); //Int -> int, Float32 -> float32, ...
         new_param->next = NULL;
 
         /*Add the parameter to the end of the list*/
@@ -127,6 +133,37 @@ void store_func_params(List *head, ast_node *params){
 }
 
 
+
+
+
+int check_func(Symbol_table *head, ast_node *funcdecl, List *param_list, char rtype[], char table_name[]){
+    List *next_param;
+    char type[MAX_AST_NODE_NAME], name[MAX_AST_NODE_NAME];
+    int error_count = 0;
+
+    /*Insert return type and parameters in the function table*/
+    insert_new_child(head, table_name, "return", "", rtype, 0);
+    for (next_param = param_list->next; next_param != NULL; next_param = next_param->next){
+        insert_new_child(head, table_name, next_param->name, "", next_param->type, 1);
+    }
+
+    /*Check for variable declarations*/
+    ast_node *funcbody = funcdecl->children[1];
+    ast_node *current;
+    for (int i=0; i<funcbody->num_children; i++){
+        current = funcbody->children[i];
+
+        /*Check for VarDecl*/
+        if (strcmp(current->name, "VarDecl")==0){
+            /*Store type and name*/
+            strcpy(type, current->children[0]->name); strcpy(name, current->children[1]->id);
+            type[0] = tolower(type[0]); //Int -> int, Float32 -> float32, ...
+            error_count += insert_new_child(head, table_name, name, "", type, 0);
+        }
+    }
+
+    return error_count;
+}
 
 
 
@@ -165,7 +202,8 @@ int check_program(Symbol_table *head, ast_node *root){
         if (strcmp(current->name,"VarDecl")==0){
             /*Store type and name*/
             strcpy(type, current->children[0]->name); strcpy(name, current->children[1]->id);
-            error_count += insert_new_child(head, "global", name, "", type);
+            type[0] = tolower(type[0]); //Int -> int, Float32 -> float32, ...
+            error_count += insert_new_child(head, "global", name, "", type, 0);
         }
 
         /*Check for FuncDecl*/
@@ -179,6 +217,8 @@ int check_program(Symbol_table *head, ast_node *root){
                 index = 1;
             }
             else index = 2;
+
+            type[0] = tolower(type[0]); //Int -> int, Float32 -> float32, ...
 
             /*Store function parameters*/
             param_list = malloc( sizeof(struct list)); param_list->next = NULL;
@@ -195,19 +235,22 @@ int check_program(Symbol_table *head, ast_node *root){
             strcat(params, ")");
 
             /*Insert the function in the global table*/
-            error_count += insert_new_child(head, "global", name, params, type);
+            error_count += insert_new_child(head, "global", name, params, type, 0);
 
             /*Also add the new table*/
             strcpy(table_name, name); strcat(table_name, params);
             insert_new_table(head, table_name);
 
             /*Verify the function body*/
-            //check_funcdecl(current, param_list);
+            check_func(head, current, param_list, type, table_name);
 
             /*Free parameters list*/
             free_param_list(param_list);
         }
     }
+
+    /*Annotate the AST*/
+    //annotate_ast(head, root);
 
     return error_count;
 }
@@ -244,7 +287,10 @@ void print_symbol_table(Symbol_table *head){
 
         /*While we have children to print*/
         for (curr_child = current->child; curr_child != NULL; curr_child = curr_child->next){
-            printf("%s\t%s\t%s\n", curr_child->name, curr_child->ptype, curr_child->rtype);
+            printf("%s\t%s\t%s", curr_child->name, curr_child->ptype, curr_child->rtype);
+            /*If its a parameter*/
+            if (curr_child->is_param==1) printf("\tparam");
+            printf("\n");
         }
         printf("\n");
     }

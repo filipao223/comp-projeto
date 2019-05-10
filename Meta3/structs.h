@@ -36,6 +36,7 @@ typedef struct symbol_node{
     char name[MAX_AST_NODE_NAME];
     char rtype[MAX_AST_NODE_NAME];
     char ptype[MAX_AST_NODE_NAME];
+    int is_param;
     struct symbol_node *next;
 } Symbol_node;
 

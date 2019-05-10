@@ -4,10 +4,15 @@
 #include "structs.h"
 
 int check_program(Symbol_table*, ast_node*);
-int check_funcdecl(Symbol_table*, ast_node*);
+int check_funcdecl(Symbol_table*, ast_node*, List*, char*, char*);
 
 int insert_new_table(Symbol_table*, char*);
-int insert_new_child(Symbol_table*, char*, char*, char*, char*);
+int insert_new_child(Symbol_table*, char*, char*, char*, char*, int);
+
+Symbol_node* search_symbol(Symbol_table*, char*, char*);
+Symbol_table* search_table(Symbol_table*, char*);
+
+void annotate_ast(Symbol_table*, ast_node*);
 
 void store_func_params(List*, ast_node*);
 

@@ -201,8 +201,10 @@ Type: INT                                                   {$$ = "Int";}
 FuncDeclaration: FUNC ID LPAR RPAR Type FuncBody            { 
                                                                 ast_node* new_node = create_new_node("FuncDecl", NULL);
                                                                 ast_node *funcheader = create_new_node("FuncHeader", NULL);
+                                                                ast_node* funcParams = create_new_node("FuncParams", NULL);
                                                                 add_ast_node(funcheader, create_new_node("ID", $2));
                                                                 add_ast_node(funcheader, create_new_node($5, NULL));
+                                                                add_ast_node(funcheader, funcParams);
                                                                 add_ast_node(new_node, funcheader);
                                                                 add_ast_node(new_node, $6);
                                                                 $$ = add_ast_node(create_new_node("root", NULL), new_node);
@@ -1002,7 +1004,7 @@ int main(int argc, char** argv) {
         yyparse();
 
         /*Semantic analysis*/
-        check_program(head, root);
+        if (print_symbols==1) check_program(head, root);
 
         if (print_tree==1) print_ast_tree(root, 0);
         if (print_symbols==1){
