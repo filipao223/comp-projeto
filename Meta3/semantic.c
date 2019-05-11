@@ -21,7 +21,7 @@
  *      1 if the table was created, 0 if it already exists.
  * 
  *********************************************************************/
-int insert_new_table(Symbol_table* head, char name[]){
+int insert_new_table(Symbol_table* head, char name[], List *param_list){
     /*Find last table*/
     Symbol_table* current = head;
     for (; current->next_table != NULL; current = current->next_table){
@@ -34,7 +34,8 @@ int insert_new_table(Symbol_table* head, char name[]){
 
     /*Insert new table*/
     Symbol_table *new_table = malloc(sizeof (struct symbol_table));
-    new_table->next_table = NULL; new_table->child = NULL;
+    new_table->next_table = NULL; new_table->child = NULL; 
+    new_table->param_list = param_list;
     strcpy(new_table->name, name);
     current->next_table = new_table;
 
@@ -102,6 +103,41 @@ int insert_new_child(Symbol_table *head, char table[], char name[], char ptype[]
 
 
 
+Symbol_table* search_table(Symbol_table *head, char *name){
+    Symbol_table *current;
+    for (current = head; current != NULL; current = current->next_table){
+        if (strcmp(name, current->name)==0) return current;
+    }
+
+    return NULL;
+}
+
+
+
+
+
+Symbol_node* search_symbol(Symbol_table *head, char *table, char *name){
+    Symbol_table *ctable;
+    Symbol_node *cnode;
+
+    /*Search table*/
+    for(ctable = head; ctable != NULL; ctable = ctable->next_table){
+        if (strcmp(table, ctable->name)==0){
+            /*Search symbol*/
+            for (cnode = ctable->child; cnode != NULL; cnode = cnode->next){
+                if (strcmp(name, cnode->name)==0) return cnode;
+            }
+        }
+    }
+
+    return NULL;
+}
+
+
+
+
+
+
 /*******************************************************************************************
  * Stores a function's parameters, name and type, as a linked list.
  * 
@@ -113,8 +149,6 @@ int insert_new_child(Symbol_table *head, char table[], char name[], char ptype[]
 void store_func_params(List *head, ast_node *params){
     ast_node *current;
     List *next_param, *new_param = NULL;
-
-    printf("%d parameters\n", params->num_children);
 
     for (int i=0; i<params->num_children; i++){
         current = params->children[i];
@@ -224,6 +258,7 @@ int check_program(Symbol_table *head, ast_node *root){
             param_list = malloc( sizeof(struct list)); param_list->next = NULL;
             store_func_params(param_list, current->children[0]->children[index]);
 
+
             /*Build parameter type string*/
             strcpy(params, "(");
             if (param_list != NULL){
@@ -238,24 +273,86 @@ int check_program(Symbol_table *head, ast_node *root){
             error_count += insert_new_child(head, "global", name, params, type, 0);
 
             /*Also add the new table*/
-            strcpy(table_name, name); strcat(table_name, params);
-            insert_new_table(head, table_name);
+            strcpy(table_name, name);
+            insert_new_table(head, table_name, param_list);
 
             /*Verify the function body*/
             check_func(head, current, param_list, type, table_name);
-
-            /*Free parameters list*/
-            free_param_list(param_list);
         }
     }
 
     /*Annotate the AST*/
-    //annotate_ast(head, root);
+    annotate_ast(head, root);
 
     return error_count;
 }
 
 
+
+
+
+void annotate_ast(Symbol_table *head, ast_node *root){
+    ast_node *current;
+
+    /*Look for function declarations*/
+    for (int i=0; i<root->num_children; i++){
+        current = root->children[i];
+
+        /*If it's a FuncDecl*/
+        if (strcmp(current->name, "FuncDecl")==0){
+
+            /*Travel FuncBody*/
+            ast_node *funcbody = current->children[1];
+            for (int j=0; j<funcbody->num_children; j++){
+                current = funcbody->children[j];
+
+                /*Function Call*/
+                if (strcmp(current->name, "Call")==0){
+                    /*Search the function in the symbol table*/
+                    Symbol_node *symbol = search_symbol(head, "global", current->children[0]->id);
+                    if (symbol==NULL){
+                        //TODO: handle syntax error
+                    }
+                    else{
+                        /*Annotate with the type*/
+                        strcpy(current->note, symbol->rtype);
+                    }
+                }
+
+                /*Look for GT, EQ, ...*/
+                else if(is_expr_bool(current->name)){
+                    annotate_node(head, current);
+                    strcpy(current->name, "bool");
+                }
+            }
+        }
+    }
+}
+
+
+
+
+void annotate_node(Symbol_table *head, ast_node *expr){
+
+}
+
+
+
+int is_expr_with_child(char *name){
+    if (strcmp(name, "Id")==0 || strcmp(name, "Assign")==0 || strcmp(name, "Add")==0
+        || strcmp(name, "Sub")==0 || strcmp(name, "Mul")==0 || strcmp(name, "Div")==0
+        || strcmp(name, "IntLit")==0 || strcmp(name, "RealLit")==0 || strcmp(name, "StrLit")==0
+        || strcmp(name, "Call")==0) return 1;
+
+    return 0;
+}
+
+int is_expr_bool(char *name){
+    if ( strcmp(name, "GT")==0 || strcmp(name, "GE")==0 || strcmp(name, "LT")==0
+        || strcmp(name, "LE")==0 || strcmp(name, "EQ")==0) return 1;
+
+    return 0;
+}
 
 
 
@@ -270,6 +367,8 @@ int check_program(Symbol_table *head, ast_node *root){
 void print_symbol_table(Symbol_table *head){
     Symbol_table* current;
     Symbol_node* curr_child;
+    List *next_param;
+    char params[MAX_AST_NODE_NAME*MAX_PARAMS];
 
     /*Print the global symbol table*/
     printf("===== Global Symbol Table =====\n");
@@ -282,8 +381,18 @@ void print_symbol_table(Symbol_table *head){
 
     /*Print the other tables*/
     for (current = head->next_table; current != NULL; current = current->next_table){
-        /*Print the namee*/
-        printf("===== Function %s Symbol Table =====\n", current->name);
+        /*Build parameter type string*/
+        strcpy(params, "(");
+        if (current->param_list != NULL){
+            for (next_param = current->param_list->next; next_param != NULL; next_param = next_param->next){
+                strcat(params, next_param->type);
+                if (next_param->next != NULL) strcat(params, ","); //Add ',' if it's not last parameter
+            }
+        }
+        strcat(params, ")");
+
+        /*Print the name*/
+        printf("===== Function %s%s Symbol Table =====\n", current->name, params);
 
         /*While we have children to print*/
         for (curr_child = current->child; curr_child != NULL; curr_child = curr_child->next){
@@ -341,6 +450,9 @@ void free_symbol_table(Symbol_table *head){
             next = curr_child->next;
             free(curr_child);
         }
+
+        /*Free the table's parameter list*/
+        free_param_list(current->param_list);
 
         /*Free this table*/
         next_table = current->next_table;

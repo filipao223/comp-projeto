@@ -1010,6 +1010,7 @@ int main(int argc, char** argv) {
         if (print_symbols==1){
             printf("\n\n");
             print_symbol_table(head);
+            print_ast_tree(root, 0);
         }
 
         free_ast_tree(root);

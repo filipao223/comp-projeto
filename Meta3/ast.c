@@ -22,6 +22,7 @@
 ast_node *create_new_node(char name[], char id[]){
     ast_node *new_node = malloc(sizeof(struct ast_node));
     new_node->num_children = 0;
+    strcpy(new_node->note, "");
     if (name == NULL) return NULL; //Name can't be empty
     strcpy(new_node->name, name);
 
@@ -188,10 +189,16 @@ void print_ast_tree(ast_node *root, int level){
 
     //Print itself
     if (strcmp(root->id, "")==0){ //If id is empty
-        printf("%s\n", root->name);
+        if (strcmp(root->note, "")==0){
+            printf("%s\n", root->name);
+        }
+        else printf("%s - %s\n", root->name, root->note);
     }
     else{
-        printf("%s(%s)\n", root->name, root->id);
+        if (strcmp(root->note, "")==0){
+            printf("%s(%s)\n", root->name, root->id);
+        }
+        else printf("%s(%s) - %s\n", root->name, root->id, root->note);
     }
 
     //Print all its children recursively
