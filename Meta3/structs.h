@@ -51,7 +51,7 @@ typedef struct symbol_node{
 } Symbol_node;
 
 
-//Simple linked list (for function parameters)
+//Simple linked list
 typedef struct list{
     char name[MAX_AST_NODE_NAME];
     char type[MAX_AST_NODE_NAME];

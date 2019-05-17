@@ -8,6 +8,20 @@
 
 
 
+/**
+ * Inserts a ParamDecl into a linked list
+ **/
+void insert_paramdecl(List *head, char *name, char *type){
+    List *new_node = malloc(sizeof(struct list));
+    strcpy(new_node->name, name); strcpy(new_node->type, type);
+    new_node->next = NULL;
+
+    /*Find the last item*/
+    List *current;
+    for (current = head; current->next!=NULL; current = current->next);
+    current->next = new_node;
+}
+
 
 
 /******************************************************************************

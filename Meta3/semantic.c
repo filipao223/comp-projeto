@@ -150,6 +150,9 @@ void store_func_params(List *head, ast_node *params){
     ast_node *current;
     List *next_param, *new_param = NULL;
 
+    //printf("Passed node is: %s %s", params->name, params->id);
+    //printf("Has %d param\n", params->num_children);
+
     for (int i=0; i<params->num_children; i++){
         current = params->children[i];
 
@@ -262,7 +265,9 @@ int check_program(Symbol_table *head, ast_node *root){
             /*Build parameter type string*/
             strcpy(params, "(");
             if (param_list != NULL){
+                //printf("For function %s:\n", name);
                 for (next_param = param_list->next; next_param != NULL; next_param = next_param->next){
+                    //printf("Param %s\n", next_param->type);
                     strcat(params, next_param->type);
                     if (next_param->next != NULL) strcat(params, ","); //Add ',' if it's not last parameter
                 }
