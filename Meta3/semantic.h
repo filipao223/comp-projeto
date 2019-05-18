@@ -13,7 +13,7 @@ Symbol_node* search_symbol(Symbol_table*, char*, char*);
 Symbol_table* search_table(Symbol_table*, char*);
 
 void annotate_ast(Symbol_table*, ast_node*);
-void annotate_node(Symbol_table*, ast_node*);
+void annotate_node(Symbol_table*, ast_node*, char*);
 int is_expr_with_child(char*);
 int is_expr_bool(char*);
 

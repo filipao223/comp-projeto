@@ -201,7 +201,7 @@ FuncDeclaration: FUNC ID LPAR RPAR Type FuncBody            {
                                                                 ast_node* new_node = create_new_node("FuncDecl", NULL);
                                                                 ast_node *funcheader = create_new_node("FuncHeader", NULL);
                                                                 ast_node* funcParams = create_new_node("FuncParams", NULL);
-                                                                add_ast_node(funcheader, create_new_node("ID", $2));
+                                                                add_ast_node(funcheader, create_new_node("Id", $2));
                                                                 add_ast_node(funcheader, create_new_node($5, NULL));
                                                                 add_ast_node(funcheader, funcParams);
                                                                 add_ast_node(new_node, funcheader);
@@ -269,7 +269,6 @@ Parameters: ID Type ParametersRep                          {
 
                                                                 /*Reinit, for next FuncDecl*/
                                                                 util_list = malloc(sizeof(struct list));
-                                                                if (util_list==NULL) printf("MALLOC FAILED\n\n\n");
                                                                 util_list->next = NULL;
 
                                                                 $$ = root;
@@ -866,7 +865,7 @@ int main(int argc, char** argv) {
         if (print_tree==1) print_ast_tree(root, 0);
         if (print_symbols==1){
             print_symbol_table(head);
-            //print_ast_tree(root, 0);
+            print_ast_tree(root, 0);
         }
 
         free_ast_tree(root);

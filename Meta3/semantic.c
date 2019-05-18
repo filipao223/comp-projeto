@@ -305,29 +305,17 @@ void annotate_ast(Symbol_table *head, ast_node *root){
 
         /*If it's a FuncDecl*/
         if (strcmp(current->name, "FuncDecl")==0){
+            /*Get its name*/
+            ast_node *func_id = current->children[0]->children[0];
 
             /*Travel FuncBody*/
             ast_node *funcbody = current->children[1];
             for (int j=0; j<funcbody->num_children; j++){
                 current = funcbody->children[j];
 
-                /*Function Call*/
-                if (strcmp(current->name, "Call")==0){
-                    /*Search the function in the symbol table*/
-                    Symbol_node *symbol = search_symbol(head, "global", current->children[0]->id);
-                    if (symbol==NULL){
-                        //TODO: handle syntax error
-                    }
-                    else{
-                        /*Annotate with the type*/
-                        strcpy(current->note, symbol->rtype);
-                    }
-                }
-
-                /*Look for GT, EQ, ...*/
-                else if(is_expr_bool(current->name)){
-                    annotate_node(head, current);
-                    strcpy(current->name, "bool");
+                /*Ignore VarDecl*/
+                if (strcmp(current->name, "VarDecl")!=0){
+                    annotate_node(head, current, func_id->id);
                 }
             }
         }
@@ -337,8 +325,79 @@ void annotate_ast(Symbol_table *head, ast_node *root){
 
 
 
-void annotate_node(Symbol_table *head, ast_node *expr){
+void annotate_node(Symbol_table *head, ast_node *expr, char *function){
+    /*While there are children, annotate them*/
+    if (expr->num_children>0){
+        for (int i=0; i<expr->num_children; i++) annotate_node(head, expr->children[i], function);
+    }
 
+    /*Function Call*/
+    if (strcmp(expr->name, "Call")==0){
+        /*Search the function in the symbol table*/
+        Symbol_node *symbol = search_symbol(head, "global", expr->children[0]->id);
+        if (symbol==NULL){
+            //TODO: handle syntax error
+        }
+        else{
+            /*Annotate with the type*/
+            strcpy(expr->note, symbol->rtype);
+        }
+    }
+
+    /*Id*/
+    else if (strcmp(expr->name, "Id")==0){
+        /*Search the symbol first as a function*/
+        Symbol_table *table = search_table(head, expr->id);
+        Symbol_node *symbol = NULL;
+        if (table==NULL){
+            /*If the table wasnt found, search it in its table*/
+            symbol = search_symbol(head, function, expr->id);
+
+            if (symbol==NULL){
+                /*If it wasnt found as a local variable, try the global table*/
+                symbol = search_symbol(head, "global", expr->id);
+            }
+        }
+
+        if (table!=NULL){
+            /*Annotate with the parameters of the function*/
+            /*Build parameter type string*/
+            char params[MAX_AST_NODE_NAME*MAX_PARAMS];
+            strcpy(params, "(");
+            if (table->param_list != NULL){
+                for (List* next_param = table->param_list->next; next_param != NULL; next_param = next_param->next){
+                    strcat(params, next_param->type);
+                    if (next_param->next != NULL) strcat(params, ","); //Add ',' if it's not last parameter
+                }
+            }
+            strcat(params, ")");
+
+            strcpy(expr->note, params);
+        }
+        else if (symbol!=NULL){
+            /*Annotate with symbol type*/
+            strcpy(expr->note, symbol->rtype);
+        }
+        else{
+            //TODO: Handle syntax error (symbol not found)
+        }
+    }
+
+    /*Check if is Assign, Add, Sub, Mul or Div*/
+    if (strcmp(expr->name, "Assign")==0 || strcmp(expr->name, "Add")==0 || strcmp(expr->name, "Sub")==0
+        || strcmp(expr->name, "Mul")==0 || strcmp(expr->name, "Div")==0){
+        /*Note is type of first operand*/
+        strcpy(expr->note, expr->children[0]->note);
+    }
+    /*Check if it's GE, GT, LE, LT or EQ*/
+    else if (is_expr_bool(expr->name)){
+        /*Note is a bool*/
+        strcpy(expr->note, "bool");
+    }
+    /*Check if IntLit, RealLit or StrLit*/
+    else if (strcmp(expr->name, "IntLit")==0) strcpy(expr->note, "int");
+    else if (strcmp(expr->name, "RealLit")==0) strcpy(expr->note, "float32");
+    else if (strcmp(expr->name, "StrLit")==0) strcpy(expr->note, "string");
 }
 
 
