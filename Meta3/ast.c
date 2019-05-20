@@ -6,11 +6,20 @@
 #include "structs.h"
 #include "ast.h"
 
+extern int total_lines, total_columns;
+extern char *yytext;
 
 
-/**
- * Inserts a ParamDecl into a linked list
- **/
+
+/***************************************************************************
+ * Inserts a ParamDecl into a linked list.
+ * 
+ * Parameters:
+ *      *head: Head of the linked list where the parameter will be stored;
+ *      *name: Name of the parameter (Id);
+ *      *type: Type of the parameter (int, float32, ...).
+ * 
+ ***************************************************************************/
 void insert_paramdecl(List *head, char *name, char *type){
     List *new_node = malloc(sizeof(struct list));
     strcpy(new_node->name, name); strcpy(new_node->type, type);
@@ -24,16 +33,22 @@ void insert_paramdecl(List *head, char *name, char *type){
 
 
 
+
+
 /******************************************************************************
-* Mallocs and returns a new struct ast_node.
-* 
-* Param:
-*   name: Name of the AST node block (Print, Assign, If, ...);
-*   id: Optional string for nodes that also have a value (int, float, string).
-*
-* Returns: Malloc'd struct ast_node.
-******************************************************************************/
-ast_node *create_new_node(char name[], char id[]){
+ * Mallocs and returns a new struct ast_node.
+ * 
+ * Parameters:
+ *      name: Name of the AST node block (Print, Assign, If, ...);
+ *      id: Optional string for nodes that also have a value (int, float, string);
+ *      line: Line of the token in the source file;
+ *      col: Column of the token in the source file.
+ *
+ * Returns: 
+ *      Malloc'd struct ast_node.
+ *
+ ******************************************************************************/
+ast_node *create_new_node(char name[], char id[], int line, int col){
     ast_node *new_node = malloc(sizeof(struct ast_node));
     new_node->num_children = 0;
     strcpy(new_node->note, "");
@@ -43,19 +58,25 @@ ast_node *create_new_node(char name[], char id[]){
     if (id != NULL) strcpy(new_node->id, id);
     else strcpy(new_node->id, "");
 
+    new_node->line = line; new_node->col = col;
+
     return new_node;
 }
+
+
+
 
 
 /**********************************************************************************************
  * Mallocs and returns a new struct ast_node, also filling in a type, for function parameters.
  * 
- * Param:
- *   name: Name of the AST node block (Print, Assign, If, ...);
- *   id: Optional string for nodes that also have a value (int, float, string).
- *   type: Type (int, float32, string) of the parameter
+ * Parameters:
+ *      name: Name of the AST node block (Print, Assign, If, ...);
+ *      id: Optional string for nodes that also have a value (int, float, string).
+ *      type: Type (int, float32, string) of the parameter.
  *
- * Returns: Malloc'd struct ast_node.
+ * Returns: 
+ *      Malloc'd struct ast_node.
  *
  **********************************************************************************************/
 ast_node *create_new_node_param(char name[], char id[], char type[]){
@@ -76,15 +97,20 @@ ast_node *create_new_node_param(char name[], char id[], char type[]){
 
 
 
-/*
-* Adds a given child node as a parameter to given parent node's children list.
-* 
-* Param:
-*   parent: Parent struct ast_node to which node will be appended
-*   child: struct ast_node which will be appended
-*
-* Returns: The given parent node.
-*/
+
+
+
+/**********************************************************************************
+ * Adds a given child node as a parameter to given parent node's children list.
+ * 
+ * Parameters:
+ *      parent: Parent struct ast_node to which node will be appended;
+ *      child: struct ast_node which will be appended;
+ *
+ * Returns: 
+ *      The given parent node.
+ * 
+ **********************************************************************************/
 ast_node *add_ast_node(ast_node *parent, ast_node *child){
     if (child != NULL && parent != NULL){
         //printf("Parent: %s | Child: %s\n", parent->id, child->id);
@@ -97,6 +123,9 @@ ast_node *add_ast_node(ast_node *parent, ast_node *child){
 
     return NULL;
 }
+
+
+
 
 
 /*TODO: remove this*/
@@ -123,21 +152,26 @@ ast_node *add_ast_list(ast_node *parent, ast_node *head){
 
 
 
-/*
-* Appends all child nodes of a given root node as a parameter to another node. 
-* Assumes that a node with name "root" is always given.
-* 
-* Param:
-*   parent: Name of the AST node which will receive child nodes;
-*   root_node: AST node which name is "root" that contains child nodes to append.
-*
-* Returns: The given parent node.
-*/
+
+
+
+/***********************************************************************************
+ * Appends all child nodes of a given root node as a parameter to another node. 
+ * Assumes that a node with name "root" is always given.
+ * 
+ * Parameters:
+ *      parent: Name of the AST node which will receive child nodes;
+ *      root_node: AST node which name is "root" that contains child nodes to append.
+ *
+ * Returns: 
+ *      The given parent node.
+ * 
+ ***********************************************************************************/
 ast_node *append_list(ast_node *parent, ast_node *root_node){
     if (parent != NULL && root_node != NULL){
         for(int i=0; i<root_node->num_children; i++){
             ast_node *current = root_node->children[i];
-            parent->children[parent->num_children] = create_new_node("empty", NULL);
+            parent->children[parent->num_children] = create_new_node("empty", NULL, total_lines, total_columns-strlen(yytext));
             copy_ast_data(parent->children[parent->num_children], current);
             copy_ast_children(parent->children[parent->num_children], current);
             parent->num_children += 1;
@@ -151,14 +185,16 @@ ast_node *append_list(ast_node *parent, ast_node *root_node){
 
 
 
-/*
-* Copies all the data (name and id) from a node to another.
-* 
-* Param:
-*   dest: Name of the AST node which will receive the data;
-*   src: Source of the data.
-*
-*/
+
+
+/****************************************************************
+ * Copies all the data (name and id) from a node to another.
+ * 
+ * Parameters:
+ *   dest: Name of the AST node which will receive the data;
+ *   src: Source of the data.
+ *
+ ****************************************************************/
 void copy_ast_data(ast_node *dest, ast_node *src){
     if (dest != NULL && src != NULL){
         strcpy(dest->name, src->name);
@@ -168,14 +204,17 @@ void copy_ast_data(ast_node *dest, ast_node *src){
 
 
 
-/*
-* Copies all child nodes from a node to another.
-* 
-* Param:
-*   dest: Name of the AST node which will receive the nodes;
-*   src: Source of the nodes.
-*
-*/
+
+
+
+/******************************************************************
+ * Copies all child nodes from a node to another.
+ * 
+ * Parameters:
+ *   dest: Name of the AST node which will receive the nodes;
+ *   src: Source of the nodes.
+ *
+ ******************************************************************/
 void copy_ast_children(ast_node *dest, ast_node *src){
     if (dest != NULL && src != NULL){
         for (int i=0; i<src->num_children; i++){
@@ -187,14 +226,17 @@ void copy_ast_children(ast_node *dest, ast_node *src){
 
 
 
-/*
-* Prints tree starting from the given node.
-* 
-* Param:
-*   root: Node from which to start printing;
-*   level: Used to print correct indentation characters, 0 means no dots.
-*
-*/
+
+
+
+/****************************************************************************
+ * Prints tree starting from the given node.
+ * 
+ * Parameters:
+ *   root: Node from which to start printing;
+ *   level: Used to print correct indentation characters, 0 means no dots.
+ *
+ ****************************************************************************/
 void print_ast_tree(ast_node *root, int level){
     if (root==NULL) return;
 
@@ -223,13 +265,15 @@ void print_ast_tree(ast_node *root, int level){
 
 
 
-/*
-* Deallocates the tree nodes (depth-first search) starting from given node.
-* 
-* Param:
-*   root: Root node of the tree;
-*
-*/
+
+
+/*****************************************************************************
+ * Deallocates the tree nodes (depth-first search) starting from given node.
+ * 
+ * Parameters:
+ *   root: Root node of the tree;
+ *
+ *****************************************************************************/
 void free_ast_tree(ast_node* root){
     if (root==NULL) return;
     //Iterate over all children

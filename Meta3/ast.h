@@ -6,7 +6,7 @@
 
 //AST functions
 void insert_paramdecl(List*, char*, char*);
-ast_node *create_new_node(char name[], char id[]);
+ast_node *create_new_node(char name[], char id[], int line, int col);
 ast_node *create_new_node_param(char name[], char id[], char type[]);
 ast_node *add_ast_node(ast_node *parent, ast_node *child);
 ast_node *add_ast_list(ast_node *parent, ast_node *head);

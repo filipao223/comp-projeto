@@ -5,6 +5,7 @@
 
 #include "structs.h"
 #include "semantic.h"
+#include "y.tab.h"
 
 
 
@@ -336,7 +337,7 @@ void annotate_node(Symbol_table *head, ast_node *expr, char *function){
         /*Search the function in the symbol table*/
         Symbol_node *symbol = search_symbol(head, "global", expr->children[0]->id);
         if (symbol==NULL){
-            //TODO: handle syntax error
+            semantic_error(SYM_NOT_FOUND, expr->line, expr->col, expr->children[0]->id, NULL, NULL);
         }
         else{
             /*Annotate with the type*/
@@ -379,7 +380,7 @@ void annotate_node(Symbol_table *head, ast_node *expr, char *function){
             strcpy(expr->note, symbol->rtype);
         }
         else{
-            //TODO: Handle syntax error (symbol not found)
+            semantic_error(SYM_NOT_FOUND, expr->line, expr->col, expr->id, NULL, NULL);
         }
     }
 
@@ -470,6 +471,33 @@ void print_symbol_table(Symbol_table *head){
 }
 
 
+
+
+void semantic_error(int error, int line, int col, char *token, char *type1, char *type2){
+    printf("Line %d, column %d: ", line, col);
+    switch (error){
+        case SYM_ALREADY_DEFINED:
+            printf("Symbol %s already defined\n", token);
+            break;
+        case SYM_NOT_FOUND:
+            printf("Cannot find symbol %s\n", token);
+            break;
+        case OP_CANT_APPLY_1:
+            printf("Operator %s cannot be applied to type %s\n", token, type1);
+            break;
+        case OP_CANT_APPLY_2:
+            printf("Operator %s cannot be applied to types %s, %s\n", token, type1, type2);
+            break;
+        case INCOMPATIBLE:
+            printf("Incompatible type %s in %s statement\n", type1, token);
+            break;
+        case INVALID_OCTAL:
+            printf("Invalid octal constant: %s\n", token);
+            break;
+        case SYM_NEVER_USED:
+            printf("Symbol %s declared but never used\n", token);
+    }
+}
 
 
 

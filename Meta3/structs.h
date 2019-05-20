@@ -13,6 +13,8 @@
 #define MAX_PARAMS 15
 
 
+
+
 //AST
 typedef struct ast_node{
     /*Type of node, Id(), Call(), ...*/
@@ -24,9 +26,14 @@ typedef struct ast_node{
     char note[MAX_AST_NODE_NAME];
     struct ast_node *parent;
     struct ast_node *children[MAX_AST_NODE_CHILDREN];
+    /*Line and column number of the token*/
+    int line, col;
     int num_children;
     int has_next_node;
 } ast_node;
+
+
+
 
 //Symbol table
 typedef struct symbol_table{
@@ -36,6 +43,11 @@ typedef struct symbol_table{
     struct symbol_node *child;
     struct symbol_table *next_table;
 } Symbol_table;
+
+
+
+
+
 
 //Symbol node
 typedef struct symbol_node{
@@ -51,11 +63,18 @@ typedef struct symbol_node{
 } Symbol_node;
 
 
+
+
+
+
 //Simple linked list
 typedef struct list{
     char name[MAX_AST_NODE_NAME];
     char type[MAX_AST_NODE_NAME];
     struct list *next;
 } List;
+
+
+
 
 #endif
