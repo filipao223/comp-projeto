@@ -182,7 +182,12 @@ int check_func(Symbol_table *head, ast_node *funcdecl, List *param_list, char rt
     /*Insert return type and parameters in the function table*/
     insert_new_child(head, table_name, "return", "", rtype, 0);
     for (next_param = param_list->next; next_param != NULL; next_param = next_param->next){
-        insert_new_child(head, table_name, next_param->name, "", next_param->type, 1);
+        if (insert_new_child(head, table_name, next_param->name, "", next_param->type, 1)==0){
+            int line = funcdecl->children[0]->children[0]->line;
+            int col = funcdecl->children[0]->children[0]->col;
+            semantic_error(SYM_ALREADY_DEFINED, line, col, next_param->name, NULL, NULL);
+            error_count++;
+        }
     }
 
     /*Check for variable declarations*/
@@ -196,7 +201,10 @@ int check_func(Symbol_table *head, ast_node *funcdecl, List *param_list, char rt
             /*Store type and name*/
             strcpy(type, current->children[0]->name); strcpy(name, current->children[1]->id);
             type[0] = tolower(type[0]); //Int -> int, Float32 -> float32, ...
-            error_count += insert_new_child(head, table_name, name, "", type, 0);
+            if (insert_new_child(head, table_name, name, "", type, 0)==0){
+                semantic_error(SYM_ALREADY_DEFINED, current->children[1]->line, current->children[1]->col, name, NULL, NULL);
+                error_count++;
+            }
         }
     }
 
@@ -241,7 +249,10 @@ int check_program(Symbol_table *head, ast_node *root){
             /*Store type and name*/
             strcpy(type, current->children[0]->name); strcpy(name, current->children[1]->id);
             type[0] = tolower(type[0]); //Int -> int, Float32 -> float32, ...
-            error_count += insert_new_child(head, "global", name, "", type, 0);
+            if (insert_new_child(head, "global", name, "", type, 0)==0){
+                semantic_error(SYM_ALREADY_DEFINED, current->children[1]->line, current->children[1]->col, name, NULL, NULL);
+                error_count++;
+            }
         }
 
         /*Check for FuncDecl*/
@@ -276,11 +287,20 @@ int check_program(Symbol_table *head, ast_node *root){
             strcat(params, ")");
 
             /*Insert the function in the global table*/
-            error_count += insert_new_child(head, "global", name, params, type, 0);
+            if (insert_new_child(head, "global", name, params, type, 0)==0){
+                int line = current->children[0]->children[0]->line;
+                int col = current->children[0]->children[0]->col;
+                semantic_error(SYM_ALREADY_DEFINED, line, col, name, NULL, NULL);
+                error_count++;
+            }
 
             /*Also add the new table*/
             strcpy(table_name, name);
-            insert_new_table(head, table_name, param_list);
+            if (insert_new_table(head, table_name, param_list)==0){
+                int line = current->children[0]->children[0]->line;
+                int col = current->children[0]->children[0]->col;
+                semantic_error(SYM_ALREADY_DEFINED, line, col, name, NULL, NULL);
+            }
 
             /*Verify the function body*/
             check_func(head, current, param_list, type, table_name);
