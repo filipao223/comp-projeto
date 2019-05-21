@@ -7,7 +7,7 @@
 #include "ast.h"
 #include "gen_code.h"
 
-int func_decl = 0;
+int count = 0;
 
 int starts_with(const char *pre, const char *str)
 {
@@ -16,38 +16,17 @@ int starts_with(const char *pre, const char *str)
     return 0;
 }
 
-char* extract_between(const char *str, const char *p1, const char *p2)
-{
-  const char *i1 = strstr(str, p1);
-  if(i1 != NULL){
-    const size_t pl1 = strlen(p1);
-    const char *i2 = strstr(i1 + pl1, p2);
-    if(p2 != NULL){
-     /* Found both markers, extract text. */
-    const size_t mlen = i2 - (i1 + pl1);
-    char *ret = malloc(mlen + 1);
-    if(ret != NULL){
-       memcpy(ret, i1 + pl1, mlen);
-       ret[mlen] = '\0';
-       return ret;
-     }
-    }
-  }
-
-  return " ";
-}
-
 char* type_of(ast_node* node){
     
-    if(strcmp(node->name, "Int")){
+    if(strcmp(node->name, "Int") == 0){
         return "i32";
     }
 
-    if(strcmp(node->name, "bool")){
+    if(strcmp(node->name, "bool") == 0){
         return "i1";
     }
 
-    if(strcmp(node->name, "float32")){
+    if(strcmp(node->name, "float32") == 0){
         return "double";
     }
 
@@ -55,13 +34,15 @@ char* type_of(ast_node* node){
     return " ";
 }
 
+char * type_of_operation(ast_node* node){
+
+}
+
 void generate_code(ast_node *root){
     if(root == NULL) return;
-
-    if(strcmp(root->name, "Program")){
-        printf("IN_PROGRAM\n");
+    if(strcmp(root->name, "Program") == 0){
         for(int i = 0; i < root->num_children; i++){
-            if(strcmp(root->children[i]->name, "FuncDecl")){
+            if(strcmp(root->children[i]->name, "FuncDecl") == 0){
                 generate_func(root->children[i]);
             }
         }
@@ -70,20 +51,29 @@ void generate_code(ast_node *root){
 
 
 void generate_func(ast_node* node){
-    printf("IN_FUNC\n");
+    //printf("GENERATE_FUNC: %s\n", node->name);
     //primeiro for para os FuncDecl
     for(int i = 0; i < node -> num_children; i++){
         //for para os FuncHeader ou FuncBody
-        for(int j = 0; j < node->children[i]->num_children; j++){
-            if(strcmp(node->children[i]->name, "FuncHeader")){
+        //for(int j = 0; j < node->children[i]->num_children; j++){
+            //printf("GENERATE_FUNC FOR: %s\n", node->children[i]->name);
+            if(strcmp(node->children[i]->name, "FuncHeader") == 0){
                 //temp é o FuncHeader
                 ast_node* temp = node->children[i];
-                char *id = extract_between(temp->children[0]->name, "(", ")");
+                char *id = temp->children[0]->id;
+                //printf("ID: %s\n", id);
                 char *type = type_of(temp->children[1]);
                 printf("define %s @%s(", type, id);
+                //printf("GENERATE_FUNC: %s\n", temp->children[2]->name);
                 generate_func_params(temp->children[2]);
+                printf(")\n");
             }
-        }
+
+            if(strcmp(node->children[i]->name, "FuncBody") == 0){
+                ast_node* temp = node->children[i];
+                generate_func_body(temp);
+            }
+        //}
     }
    
 }
@@ -98,11 +88,11 @@ char *generate_func_params(ast_node* node){
         for(int j = 0; j<temp->num_children; j+=2){
 
             char* type = type_of(temp->children[j]);
-            char* id = extract_between(temp->children[j+1]->name, "Id(", ")");
+            char* id = temp->children[j+1]->id;
 
-            if( !strcmp(type," ") && !strcmp(id, " ")){
+            if( !strcmp(type," ") == 0 && !strcmp(id, " ") == 0){
                 printf("%s %s", type, id);
-                if(j < temp->num_children - 1){
+                if(j < temp->num_children - 2){
                     printf(", ");
                 }
             }
@@ -112,4 +102,20 @@ char *generate_func_params(ast_node* node){
 
     return "";
     
+}
+
+char *generate_func_body(ast_node* node){
+
+    for (int i = 0; i < node->num_children; i++){
+        if(strcmp(node->children[i]->name, "If")){
+           ast_node* temp = node->children[i]->children;
+           char* op = type_of_operation(temp);
+           char* var = temp->children[0];
+           char* val = temp->children[1];
+           printf("%ifcond = icmp %s ");
+        }
+    }
+   
+   return " ";
+
 }
