@@ -103,7 +103,17 @@ int insert_new_child(Symbol_table *head, char table[], char name[], char ptype[]
 
 
 
-
+/*********************************************************************
+ * Searches the symbol table for a given table name.
+ * 
+ * Parameters:
+ *      *head: Head of the linked list containing the table;
+ *      *name: Name of the table to search.
+ * 
+ * Returns:
+ *      The node containing the table if found, NULL if not found.
+ * 
+ *********************************************************************/
 Symbol_table* search_table(Symbol_table *head, char *name){
     Symbol_table *current;
     for (current = head; current != NULL; current = current->next_table){
@@ -116,7 +126,18 @@ Symbol_table* search_table(Symbol_table *head, char *name){
 
 
 
-
+/*********************************************************************
+ * Searches the symbol table for a given symbol name.
+ * 
+ * Parameters:
+ *      *head: Head of the linked list containing the table;
+ *      *table: Name of the table that contains the symbol;
+ *      *name: Name of the symbol to search.
+ * 
+ * Returns:
+ *      The node containing the symbol if found, NULL if not found.
+ * 
+ *********************************************************************/
 Symbol_node* search_symbol(Symbol_table *head, char *table, char *name){
     Symbol_table *ctable;
     Symbol_node *cnode;
@@ -174,7 +195,22 @@ void store_func_params(List *head, ast_node *params){
 
 
 
-int check_func(Symbol_table *head, ast_node *funcdecl, List *param_list, char rtype[], char table_name[]){
+
+/*****************************************************************************************************************
+ * Checks a single function for any var declarations, to build symbol table.
+ * 
+ * Parameters:
+ *      *head: The head of the linked list where the table will be stored;
+ *      *funcdecl: The root node of this function declaration (FuncDecl);
+ *      *param_list: Linked list containing parsed function parameters;
+ *      rtype[]: Return type of the function;
+ *      table_name[]: Name of the function (to use in the symbol table).
+ * 
+ * Returns:
+ *      Number of found semantic errors.
+ * 
+ *****************************************************************************************************************/
+int check_func_symbols(Symbol_table *head, ast_node *funcdecl, List *param_list, char rtype[], char table_name[]){
     List *next_param;
     char type[MAX_AST_NODE_NAME], name[MAX_AST_NODE_NAME];
     int error_count = 0;
@@ -215,19 +251,22 @@ int check_func(Symbol_table *head, ast_node *funcdecl, List *param_list, char rt
 
 
 
+
+
 /*******************************************************************************************
- * Starts semantic analysis and symbol table build.
- * Checks for any var declaration and function declaration, and then checks the functions.
+ * Starts symbol table build.
+ * Checks for any var declaration and function declaration, and then checks the functions for
+ *  any var declaration.
  * 
  * Parameters:
- *      *head: The head of the linked list;
+ *      *head: The head of the linked list where the table will be stored;
  *      *root: Root node of the AST.
  * 
  * Returns:
  *      The number of found semantic errors.
  * 
  *******************************************************************************************/
-int check_program(Symbol_table *head, ast_node *root){
+int check_program_symbols(Symbol_table *head, ast_node *root){
     /*Check if a tree was actually created*/
     if (root==NULL) return -1;
 
@@ -303,7 +342,7 @@ int check_program(Symbol_table *head, ast_node *root){
             }
 
             /*Verify the function body*/
-            check_func(head, current, param_list, type, table_name);
+            check_func_symbols(head, current, param_list, type, table_name);
         }
     }
 
@@ -317,6 +356,16 @@ int check_program(Symbol_table *head, ast_node *root){
 
 
 
+/****************************************************************************
+ * Travels entire AST and annotates nodes that can be annotated.
+ * When a possible node is found, recursive function annotate_node() is called
+ *  to annotate any children nodes.
+ * 
+ * Parameters:
+ *      *head: The head of the linked list where the table will be stored;
+ *      *root: Root node of the AST (Program).
+ * 
+ ****************************************************************************/
 void annotate_ast(Symbol_table *head, ast_node *root){
     ast_node *current;
 
@@ -346,6 +395,18 @@ void annotate_ast(Symbol_table *head, ast_node *root){
 
 
 
+
+
+/***********************************************************************************************
+ * Recursive.
+ * Annotates a node, and any chldren nodes it might possess.
+ * 
+ * Parameters:
+ *      *head: The head of the linked list where the table will be stored;
+ *      *expr: Node where to start annotating;
+ *      *function: Name of the current function.
+ * 
+ ***********************************************************************************************/
 void annotate_node(Symbol_table *head, ast_node *expr, char *function){
     /*While there are children, annotate them*/
     if (expr->num_children>0){
@@ -423,21 +484,28 @@ void annotate_node(Symbol_table *head, ast_node *expr, char *function){
 
 
 
-int is_expr_with_child(char *name){
-    if (strcmp(name, "Id")==0 || strcmp(name, "Assign")==0 || strcmp(name, "Add")==0
-        || strcmp(name, "Sub")==0 || strcmp(name, "Mul")==0 || strcmp(name, "Div")==0
-        || strcmp(name, "IntLit")==0 || strcmp(name, "RealLit")==0 || strcmp(name, "StrLit")==0
-        || strcmp(name, "Call")==0) return 1;
 
-    return 0;
-}
 
+
+/*********************************************************************************************
+ * Checks if the given node name is of a node type that has the boolean type.
+ * 
+ * Parameters:
+ *      *name: Name of the AST node (Ge, Eq, ...).
+ * 
+ * Returns:
+ *      1 if the node has a boolean type, 0 otherwise.
+ * 
+ *********************************************************************************************/
 int is_expr_bool(char *name){
-    if ( strcmp(name, "GT")==0 || strcmp(name, "GE")==0 || strcmp(name, "LT")==0
-        || strcmp(name, "LE")==0 || strcmp(name, "EQ")==0) return 1;
+    if ( strcmp(name, "Gt")==0 || strcmp(name, "Ge")==0 || strcmp(name, "Lt")==0
+        || strcmp(name, "Le")==0 || strcmp(name, "Eq")==0 || strcmp(name, "Not")==0) return 1;
 
     return 0;
 }
+
+
+
 
 
 
@@ -493,6 +561,21 @@ void print_symbol_table(Symbol_table *head){
 
 
 
+
+
+
+/*************************************************************************************
+ * Prints a semantic error corresponding to given type as parameter.
+ * 
+ * Parameters:
+ *      error: Which type of error it is;
+ *      line: The line where the first token with the error appeared;
+ *      col: The column where the first token with the error appeared;
+ *      *token: Name of the token;
+ *      *type1: Type 1 of a token, for errors with only one token;
+ *      *type2: Type 2 of a token, for errors with two tokens.
+ * 
+ *************************************************************************************/
 void semantic_error(int error, int line, int col, char *token, char *type1, char *type2){
     printf("Line %d, column %d: ", line, col);
     switch (error){
