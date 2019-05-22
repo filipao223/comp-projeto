@@ -862,7 +862,7 @@ int main(int argc, char** argv) {
         yyparse();
 
         /*Semantic analysis*/
-        if (print_symbols==1) check_program(head, root);
+        if (print_symbols==1) check_program_symbols(head, root);
 
         if (print_tree==1) print_ast_tree(root, 0);
         if (print_symbols==1){

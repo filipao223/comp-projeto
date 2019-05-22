@@ -30,6 +30,8 @@ void annotate_node(Symbol_table*, ast_node*, char*);
 int is_expr_with_child(char*);
 int is_expr_bool(char*);
 
+int check_bad_octal(char*);
+
 void store_func_params(List*, ast_node*);
 
 void print_symbol_table(Symbol_table*);

@@ -477,13 +477,29 @@ void annotate_node(Symbol_table *head, ast_node *expr, char *function){
         strcpy(expr->note, "bool");
     }
     /*Check if IntLit, RealLit or StrLit*/
-    else if (strcmp(expr->name, "IntLit")==0) strcpy(expr->note, "int");
+    else if (strcmp(expr->name, "IntLit")==0){
+        /*Check of any wrong octal tokens*/
+        if (check_bad_octal(expr->id)==1) semantic_error(INVALID_OCTAL, expr->line, expr->col, expr->id, NULL, NULL);
+        /*Add the note*/
+        strcpy(expr->note, "int");
+    }
     else if (strcmp(expr->name, "RealLit")==0) strcpy(expr->note, "float32");
     else if (strcmp(expr->name, "StrLit")==0) strcpy(expr->note, "string");
 }
 
 
 
+
+int check_bad_octal(char *token){
+    /*Check if it starts with 0 and something else*/
+    if (token[0]=='0' && token[1]!='\0'){
+        for (int i=1; i<strlen(token)-1; i++){
+            if (token[i] > '7') return 1;
+        }
+    }
+    
+    return 0;
+}
 
 
 
