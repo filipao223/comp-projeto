@@ -355,6 +355,37 @@ int check_program_symbols(Symbol_table *head, ast_node *root){
 
 
 
+int check_program_semantic(Symbol_table *head, ast_node *root){
+    /*Starts at root*/
+    for (int i=0; i<root->num_children; i++){
+        ast_node *current = root->children[i];
+
+        /*Check if it's a function*/
+        if (strcmp(current->name, "FuncDecl")==0){
+            /*Enter function*/
+            /*Look for errors in FuncBody*/
+            for (int j=0; j<current->children[1]->num_children; j++){
+                ast_node *current_expr_stmt = current->children[1]->children[j];
+
+            }
+        }
+    }
+}
+
+
+int check_node_semantic(Symbol_table *head, ast_node *expr_stmt){
+    /*Check if current has child node*/
+    /*Code here...*/
+
+    /*Check for if, for nodes*/
+    /*Check if first child is bool node, otherwise, semantic error nº5*/
+
+    /*Check for statements*/
+    /*code here...*/
+}
+
+
+
 
 /****************************************************************************
  * Travels entire AST and annotates nodes that can be annotated.

@@ -19,6 +19,9 @@
 int check_program_symbols(Symbol_table*, ast_node*);
 int check_funcdecl_symbols(Symbol_table*, ast_node*, List*, char*, char*);
 
+int check_program_semantic(Symbol_table*, ast_node*);
+int check_node_semantic(Symbol_table*, ast_node*);
+
 int insert_new_table(Symbol_table*, char*, List*);
 int insert_new_child(Symbol_table*, char*, char*, char*, char*, int);
 
