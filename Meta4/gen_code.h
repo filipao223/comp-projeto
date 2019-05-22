@@ -12,5 +12,8 @@ void generate_code(ast_node *);
 void generate_func(ast_node* );
 char *generate_func_params(ast_node* );
 char *generate_func_body(ast_node*);
+char *generate_var_decl(ast_node* , int);
+int is_operation(char* );
+char *generate_parse_args(ast_node* );
 
 #endif

@@ -413,8 +413,8 @@ int is_expr_with_child(char *name){
 }
 
 int is_expr_bool(char *name){
-    if ( strcmp(name, "GT")==0 || strcmp(name, "GE")==0 || strcmp(name, "LT")==0
-        || strcmp(name, "LE")==0 || strcmp(name, "EQ")==0) return 1;
+    if ( strcmp(name, "Gt")==0 || strcmp(name, "Ge")==0 || strcmp(name, "Lt")==0
+        || strcmp(name, "Le")==0 || strcmp(name, "Eq")==0 || strcmp(name, "Not") == 0) return 1;
 
     return 0;
 }
