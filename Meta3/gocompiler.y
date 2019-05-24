@@ -4,58 +4,41 @@
     #include <string.h>
     #include <math.h>
 
-    //#include "symtab.h"
+    #include "structs.h"
+    #include "semantic.h"
+    #include "ast.h"
+
+
     #define NSYMS 100
     #define YYDEBUG 0
 
     #define _id_ "Id"
     #define _func_params_ "FuncParams"
 
-    #define MAX_TEMP 1024
+    int yydebug=1;
+    int i;
 
-    #define MAX_AST_NODE_NAME 1024
-    #define MAX_AST_NODE_ID 1024
-    #define MAX_AST_NODE_CHILDREN 1024
-
-    int yydebug=0;
-
-    //symtab tab[NSYMS];
-
-    //symtab *symlook(char *varname);
-
-    //void var_list();
 
     int yylex(void);
     extern int print_tokens;
     extern void yyerror(const char *s);
+    extern int total_lines, total_columns;
+    extern char *yytext;
 
     char temp[MAX_TEMP];
-
-    //AST
-    typedef struct ast_node{
-        char name[MAX_AST_NODE_NAME];
-        char id[MAX_AST_NODE_ID];
-        char type[MAX_AST_NODE_NAME];
-        struct ast_node *parent;
-        struct ast_node *children[MAX_AST_NODE_CHILDREN];
-        int num_children;
-    } ast_node;
-
-    //AST functions
-    ast_node *create_new_node(char name[], char id[]);
-    ast_node *create_new_node_param(char name[], char id[], char type[]);
-    ast_node *add_ast_node(ast_node *parent, ast_node *child);
-    ast_node *add_ast_list(ast_node *parent, ast_node *head);
-    ast_node *append_list(ast_node *parent, ast_node *root_node);
-    void copy_ast_data(ast_node *dest, ast_node *src);
-    void copy_ast_children(ast_node *dest, ast_node *src);
-    void print_ast_tree(ast_node *root, int level);
-    void free_ast_tree(ast_node* root);
 
     //AST root node
     ast_node *root = NULL;
     //AST current node
     ast_node *current = NULL;
+
+    //Helper list (to store params, ...)
+    List *util_list = NULL;
+    //Char* to hold current VarDecl type (to use a similar function as ParamDecl append)
+    char *current_vardecl_type;
+
+    //Symbol table head node
+    Symbol_table *head = NULL;
 %}
 
 //Tokens
@@ -109,7 +92,8 @@
 %left LT GT EQ NE LE GE 
 %left FUNC VAR
 %right PLUS MINUS
-%left STAR DIV MOD
+%left ADD SUB
+%left STAR DIV MOD MUL
 %left LPAR RPAR
 
 %type <node> Expr Program Declarations DeclarationsRep VarDeclaration VarSpec VarSpecRep FuncDeclaration Parameters ParametersRep FuncBody
@@ -128,8 +112,8 @@
 %%
 
 Program: PACKAGE ID SEMICOLON Declarations                  {
-                                                                root = append_list(create_new_node("Program", NULL), $4);
-                                                                root = root==NULL ? create_new_node("Program", NULL):root;
+                                                                root = append_list(create_new_node("Program", NULL, total_lines, total_columns-strlen(yytext)), $4);
+                                                                root = root==NULL ? create_new_node("Program", NULL, total_lines, total_columns-strlen(yytext)):root;
                                                             }
     ;
 
@@ -138,7 +122,6 @@ Declarations:                                               {$$ = NULL;}
     ;
 
 DeclarationsRep: DeclarationsRep VarDeclaration SEMICOLON   {
-                                                                
                                                                 $$ = append_list($1, $2);
 
                                                             }
@@ -156,34 +139,44 @@ VarDeclaration: VAR VarSpec                                 {
     ;
 
 VarSpec: ID VarSpecRep Type                                 {
-                                                                ast_node* id_node = create_new_node("Id", $1);
-                                                                ast_node *type_node = create_new_node($3, NULL);
-                                                                //Get list of vars
-                                                                ast_node *list = $2;
-                                                                ast_node *current;
-                                                                ast_node *list_ids = create_new_node("root", NULL);
-                                                                ast_node *vardecl = create_new_node("VarDecl", NULL);
-                                                                add_ast_node(vardecl, type_node); add_ast_node(vardecl, id_node);
-                                                                add_ast_node(list_ids, vardecl);
-                                                                for (current = list; current != NULL; current = current->children[0]){
-                                                                    if (strcmp(current->name, "empty")==0) continue;
-                                                                    //Create VarDecl node
-                                                                    vardecl = create_new_node("VarDecl", NULL);
-                                                                    //Add id and type
-                                                                    add_ast_node(vardecl, create_new_node($3, NULL));
-                                                                    vardecl->children[vardecl->num_children] = create_new_node("empty", NULL);
-                                                                    copy_ast_data(vardecl->children[vardecl->num_children], current);
-                                                                    vardecl->num_children += 1;
-                                                                    //Add to the list
-                                                                    list_ids->children[list_ids->num_children] = vardecl;
-                                                                    list_ids->num_children+=1;
+                                                                //Build first parameter
+                                                                ast_node *first = create_new_node("VarDecl", NULL, total_lines, total_columns-strlen(yytext));
+                                                                add_ast_node(first, create_new_node($3, NULL, total_lines, total_columns-strlen(yytext)));
+                                                                add_ast_node(first, create_new_node("Id", $1, total_lines, total_columns-strlen(yytext)));
+
+                                                                //Store current vardecl type
+                                                                strcpy(current_vardecl_type, $3);
+
+                                                                //Append the other parameters
+                                                                ast_node *root = create_new_node("root", NULL, total_lines, total_columns-strlen(yytext));
+                                                                add_ast_node(root, first);
+                                                                for (List* current = util_list->next; current !=NULL; current = current->next){
+                                                                    ast_node *new_node = create_new_node("VarDecl", NULL, total_lines, total_columns-strlen(yytext));
+                                                                    add_ast_node(new_node, create_new_node($3, NULL, total_lines, total_columns-strlen(yytext)));
+                                                                    add_ast_node(new_node, create_new_node("Id", current->name, total_lines, total_columns-strlen(yytext)));
+                                                                    add_ast_node(root, new_node);
                                                                 }
-                                                                $$ = list_ids;
+
+                                                                /*Free the list*/
+                                                                List *next = util_list->next;
+                                                                for (List *current = util_list->next; current != NULL; current = next){
+                                                                    next = current->next;
+                                                                    free(current);
+                                                                }
+
+                                                                /*Reinit, for next FuncDecl (or VarDecl inside function)*/
+                                                                util_list = malloc(sizeof(struct list));
+                                                                util_list->next = NULL;
+
+                                                                $$ = root;
                                                             }
     ;
 
 VarSpecRep:                                                 {$$ = NULL;}
-    | VarSpecRep COMMA ID                                   {$$ = add_ast_node(create_new_node("Id", $3), $1);}
+    | VarSpecRep COMMA ID                                   {
+                                                                /*Same method as paramdecl*/
+                                                                insert_paramdecl(util_list, $3, "nothing");
+                                                            }
     ; 
 
 Type: INT                                                   {$$ = "Int";}
@@ -193,80 +186,88 @@ Type: INT                                                   {$$ = "Int";}
     ;
 
 FuncDeclaration: FUNC ID LPAR RPAR Type FuncBody            { 
-                                                                ast_node* new_node = create_new_node("FuncDecl", NULL);
-                                                                ast_node *funcheader = create_new_node("FuncHeader", NULL);
-                                                                add_ast_node(funcheader, create_new_node("ID", $2));
-                                                                add_ast_node(funcheader, create_new_node($5, NULL));
+                                                                ast_node* new_node = create_new_node("FuncDecl", NULL, total_lines, total_columns-strlen(yytext));
+                                                                ast_node *funcheader = create_new_node("FuncHeader", NULL, total_lines, total_columns-strlen(yytext));
+                                                                ast_node* funcParams = create_new_node("FuncParams", NULL, total_lines, total_columns-strlen(yytext));
+                                                                add_ast_node(funcheader, create_new_node("Id", $2, total_lines, total_columns-strlen(yytext)));
+                                                                add_ast_node(funcheader, create_new_node($5, NULL, total_lines, total_columns-strlen(yytext)));
+                                                                add_ast_node(funcheader, funcParams);
                                                                 add_ast_node(new_node, funcheader);
                                                                 add_ast_node(new_node, $6);
-                                                                $$ = add_ast_node(create_new_node("root", NULL), new_node);
+                                                                $$ = add_ast_node(create_new_node("root", NULL, total_lines, total_columns-strlen(yytext)), new_node);
                                                             }
     | FUNC ID LPAR Parameters RPAR FuncBody                 {
-                                                                ast_node* new_node = create_new_node("FuncDecl", NULL);
-                                                                ast_node* funcHeader =  create_new_node("FuncHeader", NULL);
-                                                                ast_node* funcParams = create_new_node("FuncParams", NULL);
+                                                                ast_node* new_node = create_new_node("FuncDecl", NULL, total_lines, total_columns-strlen(yytext));
+                                                                ast_node* funcHeader =  create_new_node("FuncHeader", NULL, total_lines, total_columns-strlen(yytext));
+                                                                ast_node* funcParams = create_new_node("FuncParams", NULL, total_lines, total_columns-strlen(yytext));
 
-                                                                add_ast_node(funcHeader, create_new_node("Id", $2));
+                                                                add_ast_node(funcHeader, create_new_node("Id", $2, total_lines, total_columns-strlen(yytext)));
                                                                 append_list(funcParams, $4);
                                                                 add_ast_node(funcHeader, funcParams);
                                                                 add_ast_node(new_node, funcHeader);
                                                                 add_ast_node(new_node, $6);
-                                                                $$ = add_ast_node(create_new_node("root", NULL), new_node);
+                                                                $$ = add_ast_node(create_new_node("root", NULL, total_lines, total_columns-strlen(yytext)), new_node);
                                                             }
     | FUNC ID LPAR Parameters RPAR Type FuncBody            {
-                                                                ast_node* new_node = create_new_node("FuncDecl", NULL);
-                                                                ast_node* funcHeader =  create_new_node("FuncHeader", NULL);
-                                                                ast_node* funcParams = create_new_node("FuncParams", NULL);
+                                                                ast_node* new_node = create_new_node("FuncDecl", NULL, total_lines, total_columns-strlen(yytext));
+                                                                ast_node* funcHeader =  create_new_node("FuncHeader", NULL, total_lines, total_columns-strlen(yytext));
+                                                                ast_node* funcParams = create_new_node("FuncParams", NULL, total_lines, total_columns-strlen(yytext));
 
-                                                                add_ast_node(funcHeader, create_new_node("Id", $2));
-                                                                add_ast_node(funcHeader, create_new_node($6, NULL));
+                                                                add_ast_node(funcHeader, create_new_node("Id", $2, total_lines, total_columns-strlen(yytext)));
+                                                                add_ast_node(funcHeader, create_new_node($6, NULL, total_lines, total_columns-strlen(yytext)));
                                                                 append_list(funcParams, $4);
                                                                 add_ast_node(funcHeader, funcParams);
                                                                 add_ast_node(new_node, funcHeader);
                                                                 add_ast_node(new_node, $7);
-                                                                $$ = add_ast_node(create_new_node("root", NULL), new_node);
+                                                                $$ = add_ast_node(create_new_node("root", NULL, total_lines, total_columns-strlen(yytext)), new_node);
                                                             }
     | FUNC ID LPAR RPAR FuncBody                            { 
-                                                                ast_node* new_node = create_new_node("FuncDecl", NULL);
-                                                                ast_node* funcHeader =  create_new_node("FuncHeader", NULL);
-                                                                add_ast_node(funcHeader, create_new_node("Id", $2));
-                                                                add_ast_node(funcHeader, create_new_node("FuncParams", NULL));
+                                                                ast_node* new_node = create_new_node("FuncDecl", NULL, total_lines, total_columns-strlen(yytext));
+                                                                ast_node* funcHeader =  create_new_node("FuncHeader", NULL, total_lines, total_columns-strlen(yytext));
+                                                                add_ast_node(funcHeader, create_new_node("Id", $2, total_lines, total_columns-strlen(yytext)));
+                                                                add_ast_node(funcHeader, create_new_node("FuncParams", NULL, total_lines, total_columns-strlen(yytext)));
                                                                 add_ast_node(new_node, funcHeader);
                                                                 add_ast_node(new_node, $5);
-                                                                $$ = add_ast_node(create_new_node("root", NULL), new_node);
+                                                                $$ = add_ast_node(create_new_node("root", NULL, total_lines, total_columns-strlen(yytext)), new_node);
                                                             }
     ;
 
 Parameters: ID Type ParametersRep                          {
-                                                                //Get list of vars
-                                                                ast_node* id_node = create_new_node("Id", $1);
-                                                                ast_node* type_node = create_new_node($2, NULL);
-                                                                ast_node *list = $3;
-                                                                ast_node *current;
-                                                                ast_node *list_ids = create_new_node("root", NULL);
-                                                                /*First parameter*/
-                                                                ast_node *paramdecl = create_new_node("ParamDecl", NULL);
-                                                                add_ast_node(paramdecl, type_node); add_ast_node(paramdecl, id_node);
-                                                                add_ast_node(list_ids, paramdecl);
-                                                                for (current = list; current != NULL; current = current->children[0]){
-                                                                    if (strcmp(current->name, "empty")==0) continue;
-                                                                    //Create ParamDecl node
-                                                                    paramdecl = create_new_node("ParamDecl", NULL);
-                                                                    //Add id and type
-                                                                    add_ast_node(paramdecl, create_new_node(current->type, NULL)); //Add var type
-                                                                    paramdecl->children[paramdecl->num_children] = create_new_node("empty", NULL);
-                                                                    copy_ast_data(paramdecl->children[paramdecl->num_children], current);
-                                                                    paramdecl->num_children += 1;
-                                                                    //Add to the list
-                                                                    list_ids->children[list_ids->num_children] = paramdecl;
-                                                                    list_ids->num_children+=1;
+                                                                //Build first parameter
+                                                                ast_node *first = create_new_node("ParamDecl", NULL, total_lines, total_columns-strlen(yytext));
+                                                                add_ast_node(first, create_new_node($2, NULL, total_lines, total_columns-strlen(yytext)));
+                                                                add_ast_node(first, create_new_node("Id", $1, total_lines, total_columns-strlen(yytext)));
+
+                                                                //Append the other parameters
+                                                                ast_node *root = create_new_node("root", NULL, total_lines, total_columns-strlen(yytext));
+                                                                add_ast_node(root, first);
+                                                                for (List* current = util_list->next; current !=NULL; current = current->next){
+                                                                    ast_node *new_node = create_new_node("ParamDecl", NULL, total_lines, total_columns-strlen(yytext));
+                                                                    add_ast_node(new_node, create_new_node(current->type, NULL, total_lines, total_columns-strlen(yytext)));
+                                                                    add_ast_node(new_node, create_new_node("Id", current->name, total_lines, total_columns-strlen(yytext)));
+                                                                    add_ast_node(root, new_node);
                                                                 }
-                                                                $$ = list_ids;
+
+                                                                /*Free the list*/
+                                                                List *next = util_list->next;
+                                                                for (List *current = util_list->next; current != NULL; current = next){
+                                                                    next = current->next;
+                                                                    free(current);
+                                                                }
+
+                                                                /*Reinit, for next FuncDecl (or VarDecl inside function)*/
+                                                                util_list = malloc(sizeof(struct list));
+                                                                util_list->next = NULL;
+
+                                                                $$ = root;
                                                             }
     ;
 
 ParametersRep:                                              {$$ = NULL;}
-    | ParametersRep COMMA ID Type                           {$$ = add_ast_node($1, create_new_node_param("Id", $3, $4));}
+    | ParametersRep COMMA ID Type                           {
+                                                                //Store this param's name and type
+                                                                insert_paramdecl(util_list, $3, $4);
+                                                            }
     ;
 
 FuncBody: LBRACE VarsAndStatements RBRACE                   {
@@ -287,111 +288,423 @@ FuncBody: LBRACE VarsAndStatements RBRACE                   {
                                                                         )
                                                                     )
                                                                 {
-                                                                    node = add_ast_node(create_new_node("FuncBody", NULL), $2);
+                                                                    //printf("Not a list\n");
+                                                                    node = add_ast_node(create_new_node("FuncBody", NULL, total_lines, total_columns-strlen(yytext)), $2);
                                                                 }
                                                                 else{
-                                                                    node = append_list(create_new_node("FuncBody", NULL), $2);
+                                                                    //printf("It's a list\n");
+                                                                    //printf("List contains:\n");
+                                                                    //print_ast_tree($2, 0);
+                                                                    node = append_list(create_new_node("FuncBody", NULL, total_lines, total_columns-strlen(yytext)), $2);
                                                                 }
                                                                 $$ = node;}
-    | LBRACE RBRACE                                         {$$ = create_new_node("FuncBody", NULL);}
+    | LBRACE RBRACE                                         {$$ = create_new_node("FuncBody", NULL, total_lines, total_columns-strlen(yytext));}
     ;
 
 VarsAndStatements: VarDeclaration SEMICOLON                 {$$ = $1;}
     | Statement SEMICOLON                                   {$$ = $1;}
     | VarsAndStatements SEMICOLON                           {$$ = $1;}
     | VarsAndStatements VarDeclaration SEMICOLON            {
-                                                                ast_node *root = create_new_node("VarDecl", NULL);
-                                                                add_ast_node(root, $1);
-                                                                $$ = root;
+                                                                //ast_node *root = add_ast_node(create_new_node("root", NULL, total_lines, total_columns-strlen(yytext)), $2);
+                                                                append_list($2, $1);
+                                                                $$ = $2;
                                                             }
     | VarsAndStatements Statement SEMICOLON                 {
-                                                                ast_node *root = create_new_node("root", NULL);
+                                                                ast_node *root = create_new_node("root", NULL, total_lines, total_columns-strlen(yytext));
                                                                 ast_node* list = $1;
                                                                 if (list != NULL && strcmp(list->name, "root")==0){
                                                                     append_list(root, $1);
                                                                 }
                                                                 else add_ast_node(root, list);
-                                                                add_ast_node(root, $2);
+                                                                if ($2 == NULL) $$ = NULL;
+                                                                else $$ = add_ast_node(root, $2);
                                                                 
-                                                                $$ = root;
+                                                                //$$ = root;
                                                             }
     | SEMICOLON                                             {$$ = NULL;}
     ;
 
 Statement: ID ASSIGN Expr                                   {
-                                                                ast_node *node = create_new_node("Assign", NULL);
-                                                                add_ast_node(node, create_new_node("Id", $1));
+                                                                ast_node *node = create_new_node("Assign", NULL, total_lines, total_columns-strlen(yytext));
+                                                                add_ast_node(node, create_new_node("Id", $1, total_lines, total_columns-strlen(yytext)));
                                                                 $$ = add_ast_node(node, $3);
                                                             }
     | LBRACE StatementRep RBRACE                            {
-                                                                ast_node *list = add_ast_node(create_new_node("root", NULL), $2);
-                                                                if (list->children[0] != NULL && list->children[0]->num_children>1){
-                                                                    ast_node* block = append_list(create_new_node("Block", NULL), list);
-                                                                    $$ = block;
+                                                                ast_node *list = add_ast_node(create_new_node("root", NULL, total_lines, total_columns-strlen(yytext)), $2);
+                                                                if ($2!=NULL){
+                                                                    /*List is in format: child1
+                                                                                     ..child1_child1
+                                                                                     ..next
+                                                                                     ..child2
+                                                                                     ....chiild2_child1
+                                                                                     ..child3
+                                                                                     ....child3_child1
+                                                                    Fix this, set children after 'next' as children of parent node*/
+                                                                    ast_node* new_list = create_new_node("root", NULL, total_lines, total_columns-strlen(yytext));
+                                                                    ast_node *current = list->children[0]->children[0];
+                                                                    i=0;
+
+                                                                    //Copy first children of the list
+                                                                    ast_node *first_child = create_new_node("new", NULL, total_lines, total_columns-strlen(yytext));
+                                                                    copy_ast_data(first_child, list->children[0]);
+
+                                                                    /*Find 'next' node*/
+                                                                    for (i=0; current!=NULL ;){
+                                                                        if (strcmp(current->name, "next")==0){
+                                                                            break;
+                                                                        }
+
+                                                                        ast_node *new_node = create_new_node("new", NULL, total_lines, total_columns-strlen(yytext));
+                                                                        copy_ast_data(new_node, current); copy_ast_children(new_node, current);
+                                                                        add_ast_node(first_child, new_node);
+
+                                                                        i+=1;
+                                                                        current = list->children[0]->children[i];
+                                                                    }
+
+                                                                    add_ast_node(new_list, first_child);
+
+                                                                    /*If next was found*/
+                                                                    if (current!=NULL && strcmp(current->name, "next")==0){
+                                                                        current = list->children[0]->children[i+1]; //Node after 'next'
+                                                                        for (; current!=NULL; ){
+
+                                                                            ast_node *new_node = create_new_node("new", NULL, total_lines, total_columns-strlen(yytext));
+                                                                            copy_ast_data(new_node, current); copy_ast_children(new_node, current);
+                                                                            add_ast_node(new_list, new_node);
+
+                                                                            i+=1;
+                                                                            current=list->children[0]->children[i+1];
+                                                                        }
+
+                                                                        if (new_list->children[0] != NULL && new_list->num_children>1){
+                                                                            ast_node* block = append_list(create_new_node("Block", NULL, total_lines, total_columns-strlen(yytext)), new_list);
+                                                                            $$ = block;
+                                                                        }
+                                                                        else $$ = new_list;
+                                                                    }
+                                                                    else{
+                                                                        if (list->children[0] != NULL && list->children[0]->num_children>1){
+                                                                            ast_node* block = append_list(create_new_node("Block", NULL, total_lines, total_columns-strlen(yytext)), list);
+                                                                            $$ = block;
+                                                                        }
+                                                                        else $$ = list;
+                                                                    }
                                                                 }
-                                                                else $$ = list;
+                                                                else $$ = NULL;
+                                                                
                                                             }
     | IF Expr LBRACE StatementRep RBRACE ElseCond           {
-                                                                ast_node *if_node = create_new_node("If", NULL);
+                                                                ast_node *if_node = create_new_node("If", NULL, total_lines, total_columns-strlen(yytext));
                                                                 add_ast_node(if_node, $2);
-                                                                ast_node *block = append_list(create_new_node("Block", NULL), add_ast_node(create_new_node("root", NULL), $4));
+                                                                
+                                                                ast_node *block = NULL;
+                                                                ast_node *list = add_ast_node(create_new_node("root", NULL, total_lines, total_columns-strlen(yytext)), $4);
+                                                                
+                                                                if ($4!=NULL){
+                                                                    /*List is in format: child1
+                                                                                     ..child1_child1
+                                                                                     ..next
+                                                                                     ..child2
+                                                                                     ....chiild2_child1
+                                                                                     ..child3
+                                                                                     ....child3_child1
+                                                                    Fix this, set children after 'next' as children of parent node*/
+                                                                    ast_node* new_list = create_new_node("root", NULL, total_lines, total_columns-strlen(yytext));
+                                                                    ast_node *current = list->children[0]->children[0];
+                                                                    i=0;
+
+                                                                    //Copy first children of the list
+                                                                    ast_node *first_child = create_new_node("new", NULL, total_lines, total_columns-strlen(yytext));
+                                                                    copy_ast_data(first_child, list->children[0]);
+
+                                                                    /*Find 'next' node*/
+                                                                    for (i=0; current!=NULL ;){
+                                                                        if (strcmp(current->name, "next")==0){
+                                                                            break;
+                                                                        }
+
+                                                                        ast_node *new_node = create_new_node("new", NULL, total_lines, total_columns-strlen(yytext));
+                                                                        copy_ast_data(new_node, current); copy_ast_children(new_node, current);
+                                                                        add_ast_node(first_child, new_node);
+
+                                                                        i+=1;
+                                                                        current = list->children[0]->children[i];
+                                                                    }
+
+                                                                    add_ast_node(new_list, first_child);
+
+                                                                    /*If next was found*/
+                                                                    if (current!=NULL && strcmp(current->name, "next")==0){
+                                                                        current = list->children[0]->children[i+1]; //Node after 'next'
+                                                                        for (; current!=NULL; ){
+
+                                                                            ast_node *new_node = create_new_node("new", NULL, total_lines, total_columns-strlen(yytext));
+                                                                            copy_ast_data(new_node, current); copy_ast_children(new_node, current);
+                                                                            add_ast_node(new_list, new_node);
+
+                                                                            i+=1;
+                                                                            current=list->children[0]->children[i+1];
+                                                                        }
+
+                                                                        block = append_list(create_new_node("Block", NULL, total_lines, total_columns-strlen(yytext)), new_list);
+
+                                                                    }
+                                                                    else {
+                                                                        block = append_list(create_new_node("Block", NULL, total_lines, total_columns-strlen(yytext)), add_ast_node(create_new_node("root", NULL, total_lines, total_columns-strlen(yytext)), $4));
+                                                                    }
+                                                                }
+
+                                                                if (block==NULL) block = append_list(create_new_node("Block", NULL, total_lines, total_columns-strlen(yytext)), add_ast_node(create_new_node("root", NULL, total_lines, total_columns-strlen(yytext)), $4));
                                                                 add_ast_node(if_node, block);
                                                                 add_ast_node(if_node, $6);
                                                                 $$ = if_node;
                                                             }
-    | FOR LBRACE StatementRep RBRACE                        {   ast_node *for_node = create_new_node("For", NULL);
-                                                                ast_node *block = append_list(create_new_node("Block", NULL), add_ast_node(create_new_node("root",NULL), $3));
+    | FOR LBRACE StatementRep RBRACE                        {   
+                                                                ast_node *for_node = create_new_node("For", NULL, total_lines, total_columns-strlen(yytext));
+
+                                                                ast_node *block = NULL;
+                                                                ast_node *list = add_ast_node(create_new_node("root", NULL, total_lines, total_columns-strlen(yytext)), $3);
+                                                                //printf("Reached 2\n");
+                                                                
+                                                                if ($3!=NULL){
+                                                                    /*List is in format: child1
+                                                                                     ..child1_child1
+                                                                                     ..next
+                                                                                     ..child2
+                                                                                     ....chiild2_child1
+                                                                                     ..child3
+                                                                                     ....child3_child1
+                                                                    Fix this, set children after 'next' as children of parent node*/
+                                                                    ast_node* new_list = create_new_node("root", NULL, total_lines, total_columns-strlen(yytext));
+                                                                    ast_node *current = list->children[0]->children[0];
+                                                                    i=0;
+
+                                                                    //Copy first children of the list
+                                                                    ast_node *first_child = create_new_node("new", NULL, total_lines, total_columns-strlen(yytext));
+                                                                    copy_ast_data(first_child, list->children[0]);
+
+                                                                    /*Find 'next' node*/
+                                                                    for (i=0; current!=NULL ;){
+                                                                        if (strcmp(current->name, "next")==0){
+                                                                            break;
+                                                                        }
+
+                                                                        ast_node *new_node = create_new_node("new", NULL, total_lines, total_columns-strlen(yytext));
+                                                                        copy_ast_data(new_node, current); copy_ast_children(new_node, current);
+                                                                        add_ast_node(first_child, new_node);
+
+                                                                        i+=1;
+                                                                        current = list->children[0]->children[i];
+                                                                    }
+
+                                                                    add_ast_node(new_list, first_child);
+
+                                                                    /*If next was found*/
+                                                                    if (current!=NULL && strcmp(current->name, "next")==0){
+                                                                        current = list->children[0]->children[i+1]; //Node after 'next'
+                                                                        for (; current!=NULL; ){
+
+                                                                            ast_node *new_node = create_new_node("new", NULL, total_lines, total_columns-strlen(yytext));
+                                                                            copy_ast_data(new_node, current); copy_ast_children(new_node, current);
+                                                                            add_ast_node(new_list, new_node);
+
+                                                                            i+=1;
+                                                                            current=list->children[0]->children[i+1];
+                                                                        }
+
+                                                                        block = append_list(create_new_node("Block", NULL, total_lines, total_columns-strlen(yytext)), new_list);
+
+                                                                    }
+                                                                    else {
+                                                                        block = append_list(create_new_node("Block", NULL, total_lines, total_columns-strlen(yytext)), add_ast_node(create_new_node("root", NULL, total_lines, total_columns-strlen(yytext)), $3));
+                                                                    }
+                                                                }
+
+                                                                if (block==NULL) block = append_list(create_new_node("Block", NULL, total_lines, total_columns-strlen(yytext)), add_ast_node(create_new_node("root", NULL, total_lines, total_columns-strlen(yytext)), $3));
                                                                 add_ast_node(for_node, block);
                                                                 $$ = for_node;
                                                             }
-    | FOR Expr LBRACE StatementRep RBRACE                   {   ast_node *for_node = create_new_node("For", NULL);
+    | FOR Expr LBRACE StatementRep RBRACE                   {   ast_node *for_node = create_new_node("For", NULL, total_lines, total_columns-strlen(yytext));
                                                                 add_ast_node(for_node, $2);
-                                                                ast_node *block = append_list(create_new_node("Block", NULL), add_ast_node(create_new_node("root",NULL), $4));
+                                                                
+                                                                ast_node *block = NULL;
+                                                                ast_node *list = add_ast_node(create_new_node("root", NULL, total_lines, total_columns-strlen(yytext)), $4);
+                                                                //printf("Reached 2\n");
+                                                                
+                                                                if ($4!=NULL){
+                                                                    /*List is in format: child1
+                                                                                     ..child1_child1
+                                                                                     ..next
+                                                                                     ..child2
+                                                                                     ....chiild2_child1
+                                                                                     ..child3
+                                                                                     ....child3_child1
+                                                                    Fix this, set children after 'next' as children of parent node*/
+                                                                    ast_node* new_list = create_new_node("root", NULL, total_lines, total_columns-strlen(yytext));
+                                                                    ast_node *current = list->children[0]->children[0];
+                                                                    i=0;
+
+                                                                    //Copy first children of the list
+                                                                    ast_node *first_child = create_new_node("new", NULL, total_lines, total_columns-strlen(yytext));
+                                                                    copy_ast_data(first_child, list->children[0]);
+
+                                                                    /*Find 'next' node*/
+                                                                    for (i=0; current!=NULL ;){
+                                                                        if (strcmp(current->name, "next")==0){
+                                                                            break;
+                                                                        }
+
+                                                                        ast_node *new_node = create_new_node("new", NULL, total_lines, total_columns-strlen(yytext));
+                                                                        copy_ast_data(new_node, current); copy_ast_children(new_node, current);
+                                                                        add_ast_node(first_child, new_node);
+
+                                                                        i+=1;
+                                                                        current = list->children[0]->children[i];
+                                                                    }
+
+                                                                    add_ast_node(new_list, first_child);
+
+                                                                    /*If next was found*/
+                                                                    if (current!=NULL && strcmp(current->name, "next")==0){
+                                                                        current = list->children[0]->children[i+1]; //Node after 'next'
+                                                                        for (; current!=NULL; ){
+
+                                                                            ast_node *new_node = create_new_node("new", NULL, total_lines, total_columns-strlen(yytext));
+                                                                            copy_ast_data(new_node, current); copy_ast_children(new_node, current);
+                                                                            add_ast_node(new_list, new_node);
+
+                                                                            i+=1;
+                                                                            current=list->children[0]->children[i+1];
+                                                                        }
+
+                                                                        block = append_list(create_new_node("Block", NULL, total_lines, total_columns-strlen(yytext)), new_list);
+
+                                                                    }
+                                                                    else {
+                                                                        block = append_list(create_new_node("Block", NULL, total_lines, total_columns-strlen(yytext)), add_ast_node(create_new_node("root", NULL, total_lines, total_columns-strlen(yytext)), $4));
+                                                                    }
+                                                                }
+
+                                                                if (block==NULL) block = append_list(create_new_node("Block", NULL, total_lines, total_columns-strlen(yytext)), add_ast_node(create_new_node("root", NULL, total_lines, total_columns-strlen(yytext)), $4));
+
                                                                 add_ast_node(for_node, block);
                                                                 $$ = for_node;
                                                             }
-    | RETURN Expr                                           {$$ = add_ast_node(create_new_node("Return", NULL), $2);}
-    | RETURN                                                {$$ = create_new_node("Return", NULL);}
+    | RETURN Expr                                           {$$ = add_ast_node(create_new_node("Return", NULL, total_lines, total_columns-strlen(yytext)), $2);}
+    | RETURN                                                {$$ = create_new_node("Return", NULL, total_lines, total_columns-strlen(yytext));}
     | FuncInvocation                                        {
                                                                 ast_node *list = $1;
                                                                 ast_node* node;
                                                                 if (list != NULL && strcmp(list->name, "root")==0){
-                                                                    node = append_list(create_new_node("Call", NULL), list);
+                                                                    node = append_list(create_new_node("Call", NULL, total_lines, total_columns-strlen(yytext)), list);
                                                                 }
-                                                                else node = add_ast_node(create_new_node("Call", NULL), list);
+                                                                else node = add_ast_node(create_new_node("Call", NULL, total_lines, total_columns-strlen(yytext)), list);
                                                                 $$ = node;
                                                             }
-    | ParseArgs                                             {$$ = add_ast_list(create_new_node("ParseArgs", NULL), $1);}
-    | PRINT LPAR Expr RPAR                                  {$$ = add_ast_node(create_new_node("Print", NULL), $3);}
-    | PRINT LPAR STRLIT RPAR                                {$$ = add_ast_node(create_new_node("Print", NULL), create_new_node("StrLit", $3));}
-    | error                                                 {$$ = create_new_node("error", NULL);}
+    | ParseArgs                                             {$$ = add_ast_list(create_new_node("ParseArgs", NULL, total_lines, total_columns-strlen(yytext)), $1);}
+    | PRINT LPAR Expr RPAR                                  {$$ = add_ast_node(create_new_node("Print", NULL, total_lines, total_columns-strlen(yytext)), $3);}
+    | PRINT LPAR STRLIT RPAR                                {$$ = add_ast_node(create_new_node("Print", NULL, total_lines, total_columns-strlen(yytext)), create_new_node("StrLit", $3, total_lines, total_columns-strlen(yytext)));}
+    | error                                                 {$$ = create_new_node("error", NULL, total_lines, total_columns-strlen(yytext));}
     ;
 
 StatementRep:                                               {$$ = NULL;}
-    | StatementRep Statement SEMICOLON                      {$$ = add_ast_node($2, $1);}
+    | StatementRep Statement SEMICOLON                      {
+                                                                if ($1==NULL) $$ = $2;
+                                                                else{
+                                                                    /*If node doesn't yet have a 'next' node*/
+                                                                    if ($1->has_next_node!=1){
+                                                                        add_ast_node($1, create_new_node("next", NULL, total_lines, total_columns-strlen(yytext)));
+                                                                        $1->has_next_node=1;
+                                                                    }
+                                                                    $$ = add_ast_node($1, $2);
+                                                                }
+                                                                
+                                                            }
     ;
 
-ElseCond:                                                   {$$ = create_new_node("Block", NULL);}
-    | ELSE LBRACE StatementRep RBRACE                       {$$ = append_list(create_new_node("Block", NULL), add_ast_node(create_new_node("root", NULL), $3));}
+ElseCond:                                                   {$$ = create_new_node("Block", NULL, total_lines, total_columns-strlen(yytext));}
+    | ELSE LBRACE StatementRep RBRACE                       {
+                                                                ast_node *block = NULL;
+                                                                ast_node *list = add_ast_node(create_new_node("root", NULL, total_lines, total_columns-strlen(yytext)), $3);
+                                                                //printf("Reached 2\n");
+                                                                
+                                                                if ($3!=NULL){
+                                                                    /*List is in format: child1
+                                                                                     ..child1_child1
+                                                                                     ..next
+                                                                                     ..child2
+                                                                                     ....chiild2_child1
+                                                                                     ..child3
+                                                                                     ....child3_child1
+                                                                    Fix this, set children after 'next' as children of parent node*/
+                                                                    ast_node* new_list = create_new_node("root", NULL, total_lines, total_columns-strlen(yytext));
+                                                                    ast_node *current = list->children[0]->children[0];
+                                                                    i=0;
+
+                                                                    //Copy first children of the list
+                                                                    ast_node *first_child = create_new_node("new", NULL, total_lines, total_columns-strlen(yytext));
+                                                                    copy_ast_data(first_child, list->children[0]);
+
+                                                                    /*Find 'next' node*/
+                                                                    for (i=0; current!=NULL ;){
+                                                                        if (strcmp(current->name, "next")==0){
+                                                                            break;
+                                                                        }
+
+                                                                        ast_node *new_node = create_new_node("new", NULL, total_lines, total_columns-strlen(yytext));
+                                                                        copy_ast_data(new_node, current); copy_ast_children(new_node, current);
+                                                                        add_ast_node(first_child, new_node);
+
+                                                                        i+=1;
+                                                                        current = list->children[0]->children[i];
+                                                                    }
+
+                                                                    add_ast_node(new_list, first_child);
+
+                                                                    /*If next was found*/
+                                                                    if (current!=NULL && strcmp(current->name, "next")==0){
+                                                                        current = list->children[0]->children[i+1]; //Node after 'next'
+                                                                        for (; current!=NULL; ){
+
+                                                                            ast_node *new_node = create_new_node("new", NULL, total_lines, total_columns-strlen(yytext));
+                                                                            copy_ast_data(new_node, current); copy_ast_children(new_node, current);
+                                                                            add_ast_node(new_list, new_node);
+
+                                                                            i+=1;
+                                                                            current=list->children[0]->children[i+1];
+                                                                        }
+
+                                                                        block = append_list(create_new_node("Block", NULL, total_lines, total_columns-strlen(yytext)), new_list);
+
+                                                                    }
+                                                                    else {
+                                                                        block = append_list(create_new_node("Block", NULL, total_lines, total_columns-strlen(yytext)), add_ast_node(create_new_node("root", NULL, total_lines, total_columns-strlen(yytext)), $3));
+                                                                    }
+                                                                }
+
+                                                                if (block==NULL) block = append_list(create_new_node("Block", NULL, total_lines, total_columns-strlen(yytext)), add_ast_node(create_new_node("root", NULL, total_lines, total_columns-strlen(yytext)), $3));
+                                                                $$ = block;
+                                                            }
     ;
 
 ParseArgs: ID COMMA BLANKID ASSIGN PARSEINT LPAR CMDARGS LSQ Expr RSQ RPAR  {
-                                                                                ast_node *id = create_new_node("Id", $1);                                                                                
+                                                                                ast_node *id = create_new_node("Id", $1, total_lines, total_columns-strlen(yytext));                                                                                
                                                                                 $$ = add_ast_node(id, $9);
                                                                             }
-    | ID COMMA BLANKID ASSIGN PARSEINT LPAR error RPAR                      {$$ = create_new_node("error", NULL);}
+    | ID COMMA BLANKID ASSIGN PARSEINT LPAR error RPAR                      {$$ = create_new_node("error", NULL, total_lines, total_columns-strlen(yytext));}
     ;
 
-FuncInvocation: ID LPAR RPAR                                {$$ = create_new_node("Id", $1);}
+FuncInvocation: ID LPAR RPAR                                {$$ = create_new_node("Id", $1, total_lines, total_columns-strlen(yytext));}
     | ID LPAR FuncInvocationExpr RPAR                       {
-                                                                ast_node *id = create_new_node("Id", $1);
-                                                                ast_node *root = create_new_node("root", NULL);
+                                                                ast_node *id = create_new_node("Id", $1, total_lines, total_columns-strlen(yytext));
+                                                                ast_node *root = create_new_node("root", NULL, total_lines, total_columns-strlen(yytext));
                                                                 add_ast_node(root, id);
                                                                 add_ast_node(root, $3);
 
                                                                 $$ = root;
                                                             }
-    | ID LPAR error RPAR                                    {$$ = create_new_node("error", NULL);}
+    | ID LPAR error RPAR                                    {$$ = create_new_node("error", NULL, total_lines, total_columns-strlen(yytext));}
     ;
 
 FuncInvocationExpr: Expr                                    {$$ = $1;}
@@ -401,313 +714,103 @@ FuncInvocationExpr: Expr                                    {$$ = $1;}
     ;
 
 Expr: Expr OR Expr                                          {
-                                                                ast_node *node = create_new_node("Or", NULL);
+                                                                ast_node *node = create_new_node("Or", NULL, total_lines, total_columns-strlen(yytext));
                                                                 add_ast_node(node, $1);
                                                                 add_ast_node(node, $3);
                                                                 $$ = node;
                                                             }
     | Expr AND Expr                                         {
-                                                                ast_node *node = create_new_node("And", NULL);
+                                                                ast_node *node = create_new_node("And", NULL, total_lines, total_columns-strlen(yytext));
                                                                 add_ast_node(node, $1);
                                                                 add_ast_node(node, $3);
                                                                 $$ = node;
                                                             }
-    | NOT Expr                                              {$$ = add_ast_node(create_new_node("Not", NULL), $2);}
+    | NOT Expr                                              {$$ = add_ast_node(create_new_node("Not", NULL, total_lines, total_columns-strlen(yytext)), $2);}
     | Expr LT Expr                                          {
-                                                                ast_node *node = create_new_node("Lt", NULL);
+                                                                ast_node *node = create_new_node("Lt", NULL, total_lines, total_columns-strlen(yytext));
                                                                 add_ast_node(node, $1);
                                                                 add_ast_node(node, $3);
                                                                 $$ = node;
                                                             }
     | Expr GT Expr                                          {
-                                                                ast_node *node = create_new_node("Gt", NULL);
+                                                                ast_node *node = create_new_node("Gt", NULL, total_lines, total_columns-strlen(yytext));
                                                                 add_ast_node(node, $1);
                                                                 add_ast_node(node, $3);
                                                                 $$ = node;
                                                             }
     | Expr EQ Expr                                          {
-                                                                ast_node *node = create_new_node("Eq", NULL);
+                                                                ast_node *node = create_new_node("Eq", NULL, total_lines, total_columns-strlen(yytext));
                                                                 add_ast_node(node, $1);
                                                                 add_ast_node(node, $3);
                                                                 $$ = node;
                                                             }
     | Expr NE Expr                                          {
-                                                                ast_node *node = create_new_node("Ne", NULL);
+                                                                ast_node *node = create_new_node("Ne", NULL, total_lines, total_columns-strlen(yytext));
                                                                 add_ast_node(node, $1);
                                                                 add_ast_node(node, $3);
                                                                 $$ = node;
                                                             }
     | Expr LE Expr                                          {
-                                                                ast_node *node = create_new_node("Le", NULL);
+                                                                ast_node *node = create_new_node("Le", NULL, total_lines, total_columns-strlen(yytext));
                                                                 add_ast_node(node, $1);
                                                                 add_ast_node(node, $3);
                                                                 $$ = node;
                                                             }
     | Expr GE Expr                                          {
-                                                                ast_node *node = create_new_node("Ge", NULL);
+                                                                ast_node *node = create_new_node("Ge", NULL, total_lines, total_columns-strlen(yytext));
                                                                 add_ast_node(node, $1);
                                                                 add_ast_node(node, $3);
                                                                 $$ = node;
                                                             }
     | Expr PLUS Expr                                        {
-                                                                ast_node *node = create_new_node("Add", NULL);
+                                                                ast_node *node = create_new_node("Add", NULL, total_lines, total_columns-strlen(yytext));
                                                                 add_ast_node(node, $1);
                                                                 add_ast_node(node, $3);
                                                                 $$ = node;
                                                             }
     | Expr MINUS Expr                                       {
-                                                                ast_node *node = create_new_node("Sub", NULL);
+                                                                ast_node *node = create_new_node("Sub", NULL, total_lines, total_columns-strlen(yytext));
                                                                 add_ast_node(node, $1);
                                                                 add_ast_node(node, $3);
                                                                 $$ = node;
                                                             }
     | Expr STAR Expr                                        {
-                                                                ast_node *node = create_new_node("Mul", NULL);
+                                                                ast_node *node = create_new_node("Mul", NULL, total_lines, total_columns-strlen(yytext));
                                                                 add_ast_node(node, $1);
                                                                 add_ast_node(node, $3);
                                                                 $$ = node;
                                                             }
     | Expr DIV Expr                                         {
-                                                                ast_node *node = create_new_node("Div", NULL);
+                                                                ast_node *node = create_new_node("Div", NULL, total_lines, total_columns-strlen(yytext));
                                                                 add_ast_node(node, $1);
                                                                 add_ast_node(node, $3);
                                                                 $$ = node;
                                                             }
     | Expr MOD Expr                                         {
-                                                                ast_node *node = create_new_node("Mod", NULL);
+                                                                ast_node *node = create_new_node("Mod", NULL, total_lines, total_columns-strlen(yytext));
                                                                 add_ast_node(node, $1);
                                                                 add_ast_node(node, $3);
                                                                 $$ = node;
                                                             }
-    | PLUS Expr                                             {$$ = add_ast_node(create_new_node("Plus", NULL), $2);}
-    | MINUS Expr                                            {$$ = add_ast_node(create_new_node("Minus", NULL), $2);}
-    | INTLIT                                                {sprintf(temp, "%d", $1); $$ = create_new_node("IntLit", temp);}
-    | REALLIT                                               {sprintf(temp, "%f", $1); $$ = create_new_node("RealLit", temp);}
-    | ID                                                    {$$ = create_new_node("Id", $1);}
+    | PLUS Expr                                             {$$ = add_ast_node(create_new_node("Plus", NULL, total_lines, total_columns-strlen(yytext)), $2);}
+    | MINUS Expr                                            {$$ = add_ast_node(create_new_node("Minus", NULL, total_lines, total_columns-strlen(yytext)), $2);}
+    | INTLIT                                                {sprintf(temp, "%d", $1); $$ = create_new_node("IntLit", temp, total_lines, total_columns-strlen(yytext));}
+    | REALLIT                                               {sprintf(temp, "%f", $1); $$ = create_new_node("RealLit", temp, total_lines, total_columns-strlen(yytext));}
+    | ID                                                    {$$ = create_new_node("Id", $1, total_lines, total_columns-strlen(yytext));}
     | FuncInvocation                                        {
                                                                 ast_node *list = $1;
                                                                 ast_node* node;
                                                                 if (list != NULL && strcmp(list->name, "root")==0){
-                                                                    node = append_list(create_new_node("Call", NULL), list);
+                                                                    node = append_list(create_new_node("Call", NULL, total_lines, total_columns-strlen(yytext)), list);
                                                                 }
-                                                                else node = add_ast_node(create_new_node("Call", NULL), list);
+                                                                else node = add_ast_node(create_new_node("Call", NULL, total_lines, total_columns-strlen(yytext)), list);
                                                                 $$ = node;
                                                             }
     | LPAR Expr RPAR                                        {$$ = $2;}
-    | LPAR error RPAR                                       {$$ = create_new_node("error", NULL);}
+    | LPAR error RPAR                                       {$$ = create_new_node("error", NULL, total_lines, total_columns-strlen(yytext));}
     ;
 
 %%   
-
-/*
-* Mallocs and returns a new struct ast_node.
-* 
-* Param:
-*   name: Name of the AST node block (Print, Assign, If, ...);
-*   id: Optional string for nodes that also have a value (int, float, string).
-*
-* Returns: Malloc'd struct ast_node.
-*/
-ast_node *create_new_node(char name[], char id[]){
-    ast_node *new_node = malloc(sizeof(struct ast_node));
-    new_node->num_children = 0;
-    if (name == NULL) return NULL; //Name can't be empty
-    strcpy(new_node->name, name);
-
-    if (id != NULL) strcpy(new_node->id, id);
-    else strcpy(new_node->id, "");
-
-    return new_node;
-}
-
-
-/*
-* Mallocs and returns a new struct ast_node, also filling in a type, for function parameters.
-* 
-* Param:
-*   name: Name of the AST node block (Print, Assign, If, ...);
-*   id: Optional string for nodes that also have a value (int, float, string).
-*   type: Type (int, float32, string) of the parameter
-*
-* Returns: Malloc'd struct ast_node.
-*/
-ast_node *create_new_node_param(char name[], char id[], char type[]){
-    ast_node *new_node = malloc(sizeof(struct ast_node));
-    new_node->num_children = 0;
-    if (name == NULL) return NULL; //Name can't be empty
-    strcpy(new_node->name, name);
-
-    if (id != NULL) strcpy(new_node->id, id);
-    else strcpy(new_node->id, "");
-
-    if (type != NULL) strcpy(new_node->type, type);
-    else strcpy(new_node->type, "");
-
-    return new_node;
-}
-
-
-
-/*
-* Adds a given child node as a parameter to given parent node's children list.
-* 
-* Param:
-*   parent: Parent struct ast_node to which node will be appended
-*   child: struct ast_node which will be appended
-*
-* Returns: The given parent node.
-*/
-ast_node *add_ast_node(ast_node *parent, ast_node *child){
-    if (child != NULL && parent != NULL){
-        //printf("Parent: %s | Child: %s\n", parent->id, child->id);
-        parent->children[parent->num_children] = child;
-        parent->num_children += 1;
-
-        return parent;
-    }
-    else if(parent != NULL && child == NULL) return parent;
-
-    return NULL;
-}
-
-
-/*TODO: remove this*/
-ast_node *add_ast_list(ast_node *parent, ast_node *head){
-    if (parent != NULL && head!=NULL){
-        ast_node *current = head;
-        /*Assuming head is head node of a linked list (always one child as children[0])*/
-        for (; current != NULL; current = current->children[0]){
-            if (strcmp("empty", current->name)!=0 && strcmp("root", current->name)!=0){ //If node name is not "empty" and not "root"
-                parent->children[parent->num_children] = malloc(sizeof(struct ast_node));
-                copy_ast_data(parent->children[parent->num_children], current);
-                parent->num_children += 1;
-            }
-        }
-
-        /*Free children's childs*/
-        free_ast_tree(head);
-
-        return parent;
-    }
-
-    return NULL;
-}
-
-
-
-/*
-* Appends all child nodes of a given root node as a parameter to another node. 
-* Assumes that a node with name "root" is always given.
-* 
-* Param:
-*   parent: Name of the AST node which will receive child nodes;
-*   root_node: AST node which name is "root" that contains child nodes to append.
-*
-* Returns: The given parent node.
-*/
-ast_node *append_list(ast_node *parent, ast_node *root_node){
-    if (parent != NULL && root_node != NULL){
-        for(int i=0; i<root_node->num_children; i++){
-            ast_node *current = root_node->children[i];
-            parent->children[parent->num_children] = create_new_node("empty", NULL);
-            copy_ast_data(parent->children[parent->num_children], current);
-            copy_ast_children(parent->children[parent->num_children], current);
-            parent->num_children += 1;
-            free(current);
-        }
-        return parent;
-    }
-
-    return NULL;
-}
-
-
-
-/*
-* Copies all the data (name and id) from a node to another.
-* 
-* Param:
-*   dest: Name of the AST node which will receive the data;
-*   src: Source of the data.
-*
-*/
-void copy_ast_data(ast_node *dest, ast_node *src){
-    if (dest != NULL && src != NULL){
-        strcpy(dest->name, src->name);
-        if (strcmp(src->id, "")!=0) strcpy(dest->id, src->id);
-    }
-}
-
-
-
-/*
-* Copies all child nodes from a node to another.
-* 
-* Param:
-*   dest: Name of the AST node which will receive the nodes;
-*   src: Source of the nodes.
-*
-*/
-void copy_ast_children(ast_node *dest, ast_node *src){
-    if (dest != NULL && src != NULL){
-        for (int i=0; i<src->num_children; i++){
-            dest->children[dest->num_children] = src->children[i];
-            dest->num_children += 1;
-        }
-    }
-}
-
-
-
-/*
-* Prints tree starting from the given node.
-* 
-* Param:
-*   root: Node from which to start printing;
-*   level: Used to print correct indentation characters, 0 means no dots.
-*
-*/
-void print_ast_tree(ast_node *root, int level){
-    if (root==NULL) return;
-
-    //Print dots (two for each level above 0)
-    for (int i=0; i<level*2; i++) printf(".");
-
-    //Print itself
-    if (strcmp(root->id, "")==0){ //If id is empty
-        printf("%s\n", root->name);
-    }
-    else{
-        printf("%s(%s)\n", root->name, root->id);
-    }
-
-    //Print all its children recursively
-    for (int i=0; i<root->num_children; i++){
-        print_ast_tree(root->children[i], level+1);
-    }
-}
-
-
-
-/*
-* Deallocates the tree nodes (depth-first search) starting from given node.
-* 
-* Param:
-*   root: Root node of the tree;
-*
-*/
-void free_ast_tree(ast_node* root){
-    if (root==NULL) return;
-    //Iterate over all children
-    for (int i=0; i< root->num_children; i++){
-        free_ast_tree(root->children[i]);
-    }
-
-    //Free memory
-    free(root);
-}
-
-
 
 
 int main(int argc, char** argv) {
@@ -718,10 +821,14 @@ int main(int argc, char** argv) {
 
     int lex_only = 0;
     int print_tree = 0;
+    int print_symbols = 0;
+
+    int error_count=0;
 
     if (argc!=1){
         if (strcmp(argv[1], "-l")==0) lex_only = 1;
         if (strcmp(argv[1], "-t")==0) print_tree = 1;
+        if (strcmp(argv[1], "-s")==0) print_symbols = 1;
         if (argc == 3 && strcmp(argv[2], "-d")==0) print_tokens=0; //For debugging only
     }
 
@@ -730,9 +837,34 @@ int main(int argc, char** argv) {
     }
     else{
         print_tokens=0; //Dont print lex output | Set lex file print_tokens flag as 0
+        /*Create a new symbol table*/
+        head = malloc(sizeof (struct symbol_table));
+        strcpy(head->name, "global");
+        head->next_table = NULL; head->child = NULL;
+
+        /*Initialize list to hold ParamDecl*/
+        util_list = malloc(sizeof(struct list));
+        util_list->next = NULL;
+
+        //Malloc string to hold VarDecl type name
+        current_vardecl_type = malloc(MAX_AST_NODE_NAME);
+        strcpy(current_vardecl_type, "nothing");
+
+        /*Parse*/
         yyparse();
+
+        /*Semantic analysis*/
+        if (print_tree==0 && lex_only==0) error_count += check_program_symbols(head, root);
+
         if (print_tree==1) print_ast_tree(root, 0);
+        if (print_symbols==1 && error_count==0){
+            print_symbol_table(head);
+            print_ast_tree(root, 0);
+        }
+
+        free(current_vardecl_type);
         free_ast_tree(root);
+        free_symbol_table(head);
     }
     return 0;
 } 
