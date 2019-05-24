@@ -34,6 +34,8 @@
 
     //Helper list (to store params, ...)
     List *util_list = NULL;
+    //Char* to hold current VarDecl type (to use a similar function as ParamDecl append)
+    char *current_vardecl_type;
 
     //Symbol table head node
     Symbol_table *head = NULL;
@@ -137,59 +139,43 @@ VarDeclaration: VAR VarSpec                                 {
     ;
 
 VarSpec: ID VarSpecRep Type                                 {
-                                                                ast_node* id_node = create_new_node("Id", $1, total_lines, total_columns-strlen(yytext));
-                                                                ast_node *type_node = create_new_node($3, NULL, total_lines, total_columns-strlen(yytext));
-                                                                //Get list of vars
-                                                                ast_node *list = $2;
-                                                                //printf("LIST:\n\n");
-                                                                //print_ast_tree(list, 0);
-                                                                //printf("\n\n");
-                                                                ast_node *current;
-                                                                ast_node *list_ids = create_new_node("root", NULL, total_lines, total_columns-strlen(yytext));
-                                                                ast_node *vardecl = create_new_node("VarDecl", NULL, total_lines, total_columns-strlen(yytext));
-                                                                add_ast_node(vardecl, type_node); add_ast_node(vardecl, id_node);
-                                                                add_ast_node(list_ids, vardecl);
-                                                                int i=0;
-                                                                ast_node *parent = NULL;
-                                                                for (current = list; current != NULL;){
-                                                                    if (strcmp(current->name, "empty")==0) continue;
-                                                                    //Create VarDecl node
-                                                                    vardecl = create_new_node("VarDecl", NULL, total_lines, total_columns-strlen(yytext));
-                                                                    //Add id and type
-                                                                    add_ast_node(vardecl, create_new_node($3, NULL, total_lines, total_columns-strlen(yytext)));
-                                                                    vardecl->children[vardecl->num_children] = create_new_node("empty", NULL, total_lines, total_columns-strlen(yytext));
-                                                                    copy_ast_data(vardecl->children[vardecl->num_children], current);
-                                                                    vardecl->num_children += 1;
-                                                                    //Add to the list
-                                                                    list_ids->children[list_ids->num_children] = vardecl;
-                                                                    list_ids->num_children+=1;
-                                                                    
-                                                                    /*Next iteration*/
-                                                                    if (current->children[0]!=NULL)
-                                                                    {
-                                                                        parent = current;
-                                                                        current = current->children[0];
-                                                                    }
-                                                                    else if (parent!=NULL)
-                                                                    {
-                                                                        if (parent->num_children<=1) break;
-                                                                        else 
-                                                                        {
-                                                                            current = parent->children[i+1];
-                                                                            i+=1;
-                                                                        }
-                                                                    }
-                                                                    else break;
-                                                                    
+                                                                //Build first parameter
+                                                                ast_node *first = create_new_node("VarDecl", NULL, total_lines, total_columns-strlen(yytext));
+                                                                add_ast_node(first, create_new_node($3, NULL, total_lines, total_columns-strlen(yytext)));
+                                                                add_ast_node(first, create_new_node("Id", $1, total_lines, total_columns-strlen(yytext)));
+
+                                                                //Store current vardecl type
+                                                                strcpy(current_vardecl_type, $3);
+
+                                                                //Append the other parameters
+                                                                ast_node *root = create_new_node("root", NULL, total_lines, total_columns-strlen(yytext));
+                                                                add_ast_node(root, first);
+                                                                for (List* current = util_list->next; current !=NULL; current = current->next){
+                                                                    ast_node *new_node = create_new_node("VarDecl", NULL, total_lines, total_columns-strlen(yytext));
+                                                                    add_ast_node(new_node, create_new_node($3, NULL, total_lines, total_columns-strlen(yytext)));
+                                                                    add_ast_node(new_node, create_new_node("Id", current->name, total_lines, total_columns-strlen(yytext)));
+                                                                    add_ast_node(root, new_node);
                                                                 }
-                                                                $$ = list_ids;
+
+                                                                /*Free the list*/
+                                                                List *next = util_list->next;
+                                                                for (List *current = util_list->next; current != NULL; current = next){
+                                                                    next = current->next;
+                                                                    free(current);
+                                                                }
+
+                                                                /*Reinit, for next FuncDecl (or VarDecl inside function)*/
+                                                                util_list = malloc(sizeof(struct list));
+                                                                util_list->next = NULL;
+
+                                                                $$ = root;
                                                             }
     ;
 
 VarSpecRep:                                                 {$$ = NULL;}
     | VarSpecRep COMMA ID                                   {
-                                                                if ($1==NULL) $$ = create_new_node("Id", $3, total_lines, total_columns-strlen(yytext));
-                                                                else $$ = add_ast_node($1, create_new_node("Id", $3, total_lines, total_columns-strlen(yytext)));
+                                                                /*Same method as paramdecl*/
+                                                                insert_paramdecl(util_list, $3, "nothing");
                                                             }
     ; 
 
@@ -269,7 +255,7 @@ Parameters: ID Type ParametersRep                          {
                                                                     free(current);
                                                                 }
 
-                                                                /*Reinit, for next FuncDecl*/
+                                                                /*Reinit, for next FuncDecl (or VarDecl inside function)*/
                                                                 util_list = malloc(sizeof(struct list));
                                                                 util_list->next = NULL;
 
@@ -319,9 +305,9 @@ VarsAndStatements: VarDeclaration SEMICOLON                 {$$ = $1;}
     | Statement SEMICOLON                                   {$$ = $1;}
     | VarsAndStatements SEMICOLON                           {$$ = $1;}
     | VarsAndStatements VarDeclaration SEMICOLON            {
-                                                                ast_node *root = create_new_node("VarDecl", NULL, total_lines, total_columns-strlen(yytext));
-                                                                add_ast_node(root, $1);
-                                                                $$ = root;
+                                                                //ast_node *root = add_ast_node(create_new_node("root", NULL, total_lines, total_columns-strlen(yytext)), $2);
+                                                                append_list($2, $1);
+                                                                $$ = $2;
                                                             }
     | VarsAndStatements Statement SEMICOLON                 {
                                                                 ast_node *root = create_new_node("root", NULL, total_lines, total_columns-strlen(yytext));
@@ -860,6 +846,10 @@ int main(int argc, char** argv) {
         util_list = malloc(sizeof(struct list));
         util_list->next = NULL;
 
+        //Malloc string to hold VarDecl type name
+        current_vardecl_type = malloc(MAX_AST_NODE_NAME);
+        strcpy(current_vardecl_type, "nothing");
+
         /*Parse*/
         yyparse();
 
@@ -872,6 +862,7 @@ int main(int argc, char** argv) {
             print_ast_tree(root, 0);
         }
 
+        free(current_vardecl_type);
         free_ast_tree(root);
         free_symbol_table(head);
     }
