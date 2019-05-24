@@ -11,7 +11,7 @@ cd $project_dir
 
 lex gocompiler.l 
 yacc -d gocompiler.y
-cc -o gocompiler lex.yy.c y.tab.c -lm
+cc -o gocompiler lex.yy.c y.tab.c ast.c semantic.c -lm
 cp gocompiler $project_dir/CasosTeste/GitLab
 
 cd $project_dir/CasosTeste/GitLab
@@ -79,8 +79,11 @@ rm gocompiler
 
 #Move the .l and .y file to the desktop, rename it and zip it
 cp $project_dir/gocompiler.* $(xdg-user-dir DESKTOP)/.
+cp $project_dir/ast.* $(xdg-user-dir DESKTOP)/.
+cp $project_dir/semantic.* $(xdg-user-dir DESKTOP)/.
+cp $project_dir/structs.* $(xdg-user-dir DESKTOP)/.
 cd $(xdg-user-dir DESKTOP)
-zip gocompiler.zip gocompiler.l gocompiler.y
+zip gocompiler.zip gocompiler.l gocompiler.y ast.c semantic.c ast.h semantic.h structs.h
 cd -
 
 echo "$same files are equal"

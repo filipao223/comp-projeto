@@ -1,6 +1,8 @@
 #C files
 *.c
 !functions.c
+!ast.c
+!semantic.c
 
 #Output files
 *.out
