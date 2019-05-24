@@ -837,6 +837,8 @@ int main(int argc, char** argv) {
     int print_tree = 0;
     int print_symbols = 0;
 
+    int error_count=0;
+
     if (argc!=1){
         if (strcmp(argv[1], "-l")==0) lex_only = 1;
         if (strcmp(argv[1], "-t")==0) print_tree = 1;
@@ -862,10 +864,10 @@ int main(int argc, char** argv) {
         yyparse();
 
         /*Semantic analysis*/
-        if (print_symbols==1) check_program_symbols(head, root);
+        if (print_symbols==1) error_count += check_program_symbols(head, root);
 
         if (print_tree==1) print_ast_tree(root, 0);
-        if (print_symbols==1){
+        if (print_symbols==1 && error_count==0){
             print_symbol_table(head);
             print_ast_tree(root, 0);
         }

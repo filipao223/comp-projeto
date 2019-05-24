@@ -28,8 +28,8 @@ int insert_new_child(Symbol_table*, char*, char*, char*, char*, int);
 Symbol_node* search_symbol(Symbol_table*, char*, char*);
 Symbol_table* search_table(Symbol_table*, char*);
 
-void annotate_ast(Symbol_table*, ast_node*);
-void annotate_node(Symbol_table*, ast_node*, char*);
+int annotate_ast(Symbol_table*, ast_node*);
+int annotate_node(Symbol_table*, ast_node*, char*);
 int is_expr_with_child(char*);
 int is_expr_bool(char*);
 
@@ -40,6 +40,7 @@ void store_func_params(List*, ast_node*);
 void print_symbol_table(Symbol_table*);
 
 void semantic_error(int, int, int, char*, char*, char*);
+void return_operator(char*);
 
 void free_param_list(List*);
 void free_symbol_table(Symbol_table*);
