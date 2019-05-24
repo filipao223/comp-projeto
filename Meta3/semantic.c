@@ -339,6 +339,7 @@ int check_program_symbols(Symbol_table *head, ast_node *root){
                 int line = current->children[0]->children[0]->line;
                 int col = current->children[0]->children[0]->col;
                 semantic_error(SYM_ALREADY_DEFINED, line, col, name, NULL, NULL);
+                error_count++;
             }
 
             /*Verify the function body*/
@@ -514,7 +515,7 @@ int annotate_node(Symbol_table *head, ast_node *expr, char *function){
     int error_count=0;
     /*While there are children, annotate them*/
     if (expr->num_children>0){
-        for (int i=0; i<expr->num_children; i++) annotate_node(head, expr->children[i], function);
+        for (int i=0; i<expr->num_children; i++) error_count += annotate_node(head, expr->children[i], function);
     }
 
     /*Function Call*/
@@ -585,7 +586,10 @@ int annotate_node(Symbol_table *head, ast_node *expr, char *function){
     /*Check if IntLit, RealLit or StrLit*/
     else if (strcmp(expr->name, "IntLit")==0){
         /*Check of any wrong octal tokens*/
-        if (check_bad_octal(expr->id)==1) semantic_error(INVALID_OCTAL, expr->line, expr->col, expr->id, NULL, NULL);
+        if (check_bad_octal(expr->id)==1){
+            semantic_error(INVALID_OCTAL, expr->line, expr->col, expr->id, NULL, NULL);
+            error_count++;
+        }
         /*Add the note*/
         strcpy(expr->note, "int");
     }
