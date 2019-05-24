@@ -5,13 +5,13 @@ lexsame=0
 different=0
 lexdiff=0
 
-project_dir=$(xdg-user-dir DOCUMENTS)/COMP/Projeto/comp-projeto/Meta3
+project_dir=$(xdg-user-dir DOCUMENTS)/COMP/Projeto/comp-projeto/Meta4
 
 cd $project_dir
 
 lex gocompiler.l 
 yacc -d gocompiler.y
-cc -o gocompiler lex.yy.c y.tab.c ast.c semantic.c -lm
+cc -o gocompiler lex.yy.c y.tab.c ast.c semantic.c gen_code.c -lm
 cp gocompiler $project_dir/CasosTeste/GitLab
 
 cd $project_dir/CasosTeste/GitLab
@@ -82,8 +82,9 @@ cp $project_dir/gocompiler.* $(xdg-user-dir DESKTOP)/.
 cp $project_dir/ast.* $(xdg-user-dir DESKTOP)/.
 cp $project_dir/semantic.* $(xdg-user-dir DESKTOP)/.
 cp $project_dir/structs.* $(xdg-user-dir DESKTOP)/.
+cp $project_dir/gen_code.* $(xdg-user-dir DESKTOP)/.
 cd $(xdg-user-dir DESKTOP)
-zip gocompiler.zip gocompiler.l gocompiler.y ast.c semantic.c ast.h semantic.h structs.h
+zip gocompiler.zip gocompiler.l gocompiler.y ast.c semantic.c ast.h semantic.h structs.h gen_code.c gen_code.h
 cd -
 
 echo "$same files are equal"

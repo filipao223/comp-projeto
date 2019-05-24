@@ -152,7 +152,7 @@ char *generate_func_params(ast_node* node){
             char* type = type_of(temp->children[j]);
             char* id = temp->children[j+1]->id;
 
-            if( !strcmp(type," ") == 0 && !strcmp(id, " ") == 0){
+            if( !(strcmp(type," ") == 0) && !(strcmp(id, " ") == 0)){
                 printf("%s %s", type, id);
                 if(j < temp->num_children - 2){
                     printf(", ");
