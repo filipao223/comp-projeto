@@ -855,7 +855,7 @@ int main(int argc, char** argv) {
         yyparse();
 
         /*Semantic analysis*/
-        error_count += check_program(head, root);
+        if (print_tree==0 && lex_only==0) error_count += check_program_symbols(head, root);
 
         if (print_tree==1) print_ast_tree(root, 0);
         if (print_symbols==1 && error_count==0){

@@ -103,7 +103,17 @@ int insert_new_child(Symbol_table *head, char table[], char name[], char ptype[]
 
 
 
-
+/*********************************************************************
+ * Searches the symbol table for a given table name.
+ * 
+ * Parameters:
+ *      *head: Head of the linked list containing the table;
+ *      *name: Name of the table to search.
+ * 
+ * Returns:
+ *      The node containing the table if found, NULL if not found.
+ * 
+ *********************************************************************/
 Symbol_table* search_table(Symbol_table *head, char *name){
     Symbol_table *current;
     for (current = head; current != NULL; current = current->next_table){
@@ -116,7 +126,18 @@ Symbol_table* search_table(Symbol_table *head, char *name){
 
 
 
-
+/*********************************************************************
+ * Searches the symbol table for a given symbol name.
+ * 
+ * Parameters:
+ *      *head: Head of the linked list containing the table;
+ *      *table: Name of the table that contains the symbol;
+ *      *name: Name of the symbol to search.
+ * 
+ * Returns:
+ *      The node containing the symbol if found, NULL if not found.
+ * 
+ *********************************************************************/
 Symbol_node* search_symbol(Symbol_table *head, char *table, char *name){
     Symbol_table *ctable;
     Symbol_node *cnode;
@@ -174,7 +195,22 @@ void store_func_params(List *head, ast_node *params){
 
 
 
-int check_func(Symbol_table *head, ast_node *funcdecl, List *param_list, char rtype[], char table_name[]){
+
+/*****************************************************************************************************************
+ * Checks a single function for any var declarations, to build symbol table.
+ * 
+ * Parameters:
+ *      *head: The head of the linked list where the table will be stored;
+ *      *funcdecl: The root node of this function declaration (FuncDecl);
+ *      *param_list: Linked list containing parsed function parameters;
+ *      rtype[]: Return type of the function;
+ *      table_name[]: Name of the function (to use in the symbol table).
+ * 
+ * Returns:
+ *      Number of found semantic errors.
+ * 
+ *****************************************************************************************************************/
+int check_func_symbols(Symbol_table *head, ast_node *funcdecl, List *param_list, char rtype[], char table_name[]){
     List *next_param;
     char type[MAX_AST_NODE_NAME], name[MAX_AST_NODE_NAME];
     int error_count = 0;
@@ -182,7 +218,12 @@ int check_func(Symbol_table *head, ast_node *funcdecl, List *param_list, char rt
     /*Insert return type and parameters in the function table*/
     insert_new_child(head, table_name, "return", "", rtype, 0);
     for (next_param = param_list->next; next_param != NULL; next_param = next_param->next){
-        insert_new_child(head, table_name, next_param->name, "", next_param->type, 1);
+        if (insert_new_child(head, table_name, next_param->name, "", next_param->type, 1)==0){
+            int line = funcdecl->children[0]->children[0]->line;
+            int col = funcdecl->children[0]->children[0]->col;
+            semantic_error(SYM_ALREADY_DEFINED, line, col, next_param->name, NULL, NULL);
+            error_count++;
+        }
     }
 
     /*Check for variable declarations*/
@@ -196,7 +237,10 @@ int check_func(Symbol_table *head, ast_node *funcdecl, List *param_list, char rt
             /*Store type and name*/
             strcpy(type, current->children[0]->name); strcpy(name, current->children[1]->id);
             type[0] = tolower(type[0]); //Int -> int, Float32 -> float32, ...
-            error_count += insert_new_child(head, table_name, name, "", type, 0);
+            if (insert_new_child(head, table_name, name, "", type, 0)==0){
+                semantic_error(SYM_ALREADY_DEFINED, current->children[1]->line, current->children[1]->col, name, NULL, NULL);
+                error_count++;
+            }
         }
     }
 
@@ -207,19 +251,22 @@ int check_func(Symbol_table *head, ast_node *funcdecl, List *param_list, char rt
 
 
 
+
+
 /*******************************************************************************************
- * Starts semantic analysis and symbol table build.
- * Checks for any var declaration and function declaration, and then checks the functions.
+ * Starts symbol table build.
+ * Checks for any var declaration and function declaration, and then checks the functions for
+ *  any var declaration.
  * 
  * Parameters:
- *      *head: The head of the linked list;
+ *      *head: The head of the linked list where the table will be stored;
  *      *root: Root node of the AST.
  * 
  * Returns:
  *      The number of found semantic errors.
  * 
  *******************************************************************************************/
-int check_program(Symbol_table *head, ast_node *root){
+int check_program_symbols(Symbol_table *head, ast_node *root){
     /*Check if a tree was actually created*/
     if (root==NULL) return -1;
 
@@ -241,7 +288,10 @@ int check_program(Symbol_table *head, ast_node *root){
             /*Store type and name*/
             strcpy(type, current->children[0]->name); strcpy(name, current->children[1]->id);
             type[0] = tolower(type[0]); //Int -> int, Float32 -> float32, ...
-            error_count += insert_new_child(head, "global", name, "", type, 0);
+            if (insert_new_child(head, "global", name, "", type, 0)==0){
+                semantic_error(SYM_ALREADY_DEFINED, current->children[1]->line, current->children[1]->col, name, NULL, NULL);
+                error_count++;
+            }
         }
 
         /*Check for FuncDecl*/
@@ -276,19 +326,32 @@ int check_program(Symbol_table *head, ast_node *root){
             strcat(params, ")");
 
             /*Insert the function in the global table*/
-            error_count += insert_new_child(head, "global", name, params, type, 0);
+            if (insert_new_child(head, "global", name, params, type, 0)==0){
+                int line = current->children[0]->children[0]->line;
+                int col = current->children[0]->children[0]->col;
+                semantic_error(SYM_ALREADY_DEFINED, line, col, name, NULL, NULL);
+                error_count++;
+            }
 
             /*Also add the new table*/
             strcpy(table_name, name);
-            insert_new_table(head, table_name, param_list);
+            if (insert_new_table(head, table_name, param_list)==0){
+                int line = current->children[0]->children[0]->line;
+                int col = current->children[0]->children[0]->col;
+                semantic_error(SYM_ALREADY_DEFINED, line, col, name, NULL, NULL);
+                error_count++;
+            }
 
             /*Verify the function body*/
-            check_func(head, current, param_list, type, table_name);
+            error_count += check_func_symbols(head, current, param_list, type, table_name);
         }
     }
 
     /*Annotate the AST*/
-    annotate_ast(head, root);
+    error_count += annotate_ast(head, root);
+
+    /*Check semantic errors*/
+    error_count += check_program_semantic(head, root);
 
     return error_count;
 }
@@ -296,9 +359,117 @@ int check_program(Symbol_table *head, ast_node *root){
 
 
 
+int check_program_semantic(Symbol_table *head, ast_node *root){
+    /*Starts at root*/
+    int error_count=0;
+    for (int i=0; i<root->num_children; i++){
+        ast_node *current = root->children[i];
 
-void annotate_ast(Symbol_table *head, ast_node *root){
+        /*Check if it's a function*/
+        if (strcmp(current->name, "FuncDecl")==0){
+            /*Enter function*/
+            /*Look for errors in FuncBody*/
+            for (int j=0; j<current->children[1]->num_children; j++){
+                ast_node *current_expr_stmt = current->children[1]->children[j];
+                error_count += check_node_semantic(head, current_expr_stmt);
+            }
+        }
+    }
+
+    return error_count;
+}
+
+
+int check_node_semantic(Symbol_table *head, ast_node *expr_stmt){
+    int error_count=0;
+    /*Check if current has child node*/
+    if (expr_stmt->num_children > 0){
+        for (int i=0; i<expr_stmt->num_children; i++) check_node_semantic(head, expr_stmt->children[i]);
+    }
+
+    /*Check for If and For nodes*/
+    /*Check if first child is bool node, otherwise, semantic error nº5*/
+    else if (strcmp(expr_stmt->name, "If")==0 || strcmp(expr_stmt->name, "For")==0){
+        /*Check if first child is not of type bool*/
+        if (strcmp(expr_stmt->children[0]->note, "bool")!=0){
+            semantic_error(INCOMPATIBLE, expr_stmt->children[0]->line, expr_stmt->children[0]->col, expr_stmt->children[0]->name, expr_stmt->children[0]->note, NULL);
+            error_count++;
+        }
+    }
+
+    /*Check for bool statements with one children*/
+    else if (strcmp(expr_stmt->name, "Not")==0){
+        /*Check if it's child is not bool*/
+        if (strcmp(expr_stmt->children[0]->note, "bool")!=0){
+            semantic_error(OP_CANT_APPLY_1, expr_stmt->line, expr_stmt->col, expr_stmt->name, expr_stmt->children[0]->note, NULL);
+            error_count++;
+        }
+    }
+
+    /*Check for non bool statements with one children*/
+    else if (strcmp(expr_stmt->name, "Plus")==0 || strcmp(expr_stmt->name, "Minus")==0){
+        /*Check if its child is string, undef or bool*/
+        ast_node *child = expr_stmt->children[0];
+        if (strcmp(child->note, "string")==0 || strcmp(child->note, "undef")==0 || strcmp(child->note, "bool")==0){
+            semantic_error(OP_CANT_APPLY_1, expr_stmt->line, expr_stmt->col, expr_stmt->name, child->note, NULL);
+            error_count++;
+        }
+    }
+
+    /*Check for bool statements with two children*/
+    else if (strcmp(expr_stmt->name, "Gt")==0 || strcmp(expr_stmt->name, "Ge")==0 || strcmp(expr_stmt->name, "Lt")==0
+            || strcmp(expr_stmt->name, "Le")==0 || strcmp(expr_stmt->name, "Eq")==0 || strcmp(expr_stmt->name, "Ne")==0)
+    {
+        /*Check if the types of the children are different*/
+        if (strcmp(expr_stmt->children[0]->note, expr_stmt->children[1]->note)!=0){
+            semantic_error(OP_CANT_APPLY_2, expr_stmt->line, expr_stmt->col, expr_stmt->name, expr_stmt->children[0]->note, expr_stmt->children[1]->note);
+            error_count++;
+        }
+
+        /*Check if the types are string-string or undef-undef*/
+        else if (strcmp(expr_stmt->children[0]->note, "string")==0 || strcmp(expr_stmt->children[0]->note, "undef")){
+            semantic_error(OP_CANT_APPLY_2, expr_stmt->line, expr_stmt->col, expr_stmt->name, expr_stmt->children[0]->note, expr_stmt->children[1]->note);
+            error_count++;
+        }
+    }
+
+    /*Check for other statements with two children*/
+    else if (strcmp(expr_stmt->name, "Assign")==0 || strcmp(expr_stmt->name, "Add")==0
+            || strcmp(expr_stmt->name, "Sub")==0 || strcmp(expr_stmt->name, "Mul")==0
+            || strcmp(expr_stmt->name, "Div")==0)
+    {
+        /*Check if the types of children are different*/
+        if (strcmp(expr_stmt->children[0]->note, expr_stmt->children[1]->note)!=0){
+            semantic_error(OP_CANT_APPLY_2, expr_stmt->line, expr_stmt->col, expr_stmt->name, expr_stmt->children[0]->note, expr_stmt->children[1]->note);
+            error_count++;
+        }
+
+        /*Check if the types are string-string or undef-undef*/
+        else if (strcmp(expr_stmt->children[0]->note, "string")==0 || strcmp(expr_stmt->children[0]->note, "undef")){
+            semantic_error(OP_CANT_APPLY_2, expr_stmt->line, expr_stmt->col, expr_stmt->name, expr_stmt->children[0]->note, expr_stmt->children[1]->note);
+            error_count++;
+        }
+    }
+
+    return error_count;
+}
+
+
+
+
+/****************************************************************************
+ * Travels entire AST and annotates nodes that can be annotated.
+ * When a possible node is found, recursive function annotate_node() is called
+ *  to annotate any children nodes.
+ * 
+ * Parameters:
+ *      *head: The head of the linked list where the table will be stored;
+ *      *root: Root node of the AST (Program).
+ * 
+ ****************************************************************************/
+int annotate_ast(Symbol_table *head, ast_node *root){
     ast_node *current;
+    int error_count=0;
 
     /*Look for function declarations*/
     for (int i=0; i<root->num_children; i++){
@@ -316,20 +487,35 @@ void annotate_ast(Symbol_table *head, ast_node *root){
 
                 /*Ignore VarDecl*/
                 if (strcmp(current->name, "VarDecl")!=0){
-                    annotate_node(head, current, func_id->id);
+                    error_count += annotate_node(head, current, func_id->id);
                 }
             }
         }
     }
+
+    return error_count;
 }
 
 
 
 
-void annotate_node(Symbol_table *head, ast_node *expr, char *function){
+
+
+/***********************************************************************************************
+ * Recursive.
+ * Annotates a node, and any chldren nodes it might possess.
+ * 
+ * Parameters:
+ *      *head: The head of the linked list where the table will be stored;
+ *      *expr: Node where to start annotating;
+ *      *function: Name of the current function.
+ * 
+ ***********************************************************************************************/
+int annotate_node(Symbol_table *head, ast_node *expr, char *function){
+    int error_count=0;
     /*While there are children, annotate them*/
     if (expr->num_children>0){
-        for (int i=0; i<expr->num_children; i++) annotate_node(head, expr->children[i], function);
+        for (int i=0; i<expr->num_children; i++) error_count += annotate_node(head, expr->children[i], function);
     }
 
     /*Function Call*/
@@ -338,6 +524,7 @@ void annotate_node(Symbol_table *head, ast_node *expr, char *function){
         Symbol_node *symbol = search_symbol(head, "global", expr->children[0]->id);
         if (symbol==NULL){
             semantic_error(SYM_NOT_FOUND, expr->line, expr->col, expr->children[0]->id, NULL, NULL);
+            error_count++;
         }
         else{
             /*Annotate with the type*/
@@ -381,6 +568,7 @@ void annotate_node(Symbol_table *head, ast_node *expr, char *function){
         }
         else{
             semantic_error(SYM_NOT_FOUND, expr->line, expr->col, expr->id, NULL, NULL);
+            error_count++;
         }
     }
 
@@ -396,28 +584,57 @@ void annotate_node(Symbol_table *head, ast_node *expr, char *function){
         strcpy(expr->note, "bool");
     }
     /*Check if IntLit, RealLit or StrLit*/
-    else if (strcmp(expr->name, "IntLit")==0) strcpy(expr->note, "int");
+    else if (strcmp(expr->name, "IntLit")==0){
+        /*Check of any wrong octal tokens*/
+        if (check_bad_octal(expr->id)==1){
+            semantic_error(INVALID_OCTAL, expr->line, expr->col, expr->id, NULL, NULL);
+            error_count++;
+        }
+        /*Add the note*/
+        strcpy(expr->note, "int");
+    }
     else if (strcmp(expr->name, "RealLit")==0) strcpy(expr->note, "float32");
     else if (strcmp(expr->name, "StrLit")==0) strcpy(expr->note, "string");
+
+    return error_count;
 }
 
 
 
-int is_expr_with_child(char *name){
-    if (strcmp(name, "Id")==0 || strcmp(name, "Assign")==0 || strcmp(name, "Add")==0
-        || strcmp(name, "Sub")==0 || strcmp(name, "Mul")==0 || strcmp(name, "Div")==0
-        || strcmp(name, "IntLit")==0 || strcmp(name, "RealLit")==0 || strcmp(name, "StrLit")==0
-        || strcmp(name, "Call")==0) return 1;
 
+int check_bad_octal(char *token){
+    /*Check if it starts with 0 and something else*/
+    if (token[0]=='0' && token[1]!='\0'){
+        for (int i=1; i<strlen(token)-1; i++){
+            if (token[i] > '7') return 1;
+        }
+    }
+    
     return 0;
 }
 
+
+
+/*********************************************************************************************
+ * Checks if the given node name is of a node type that has the boolean type.
+ * 
+ * Parameters:
+ *      *name: Name of the AST node (Ge, Eq, ...).
+ * 
+ * Returns:
+ *      1 if the node has a boolean type, 0 otherwise.
+ * 
+ *********************************************************************************************/
 int is_expr_bool(char *name){
     if ( strcmp(name, "Gt")==0 || strcmp(name, "Ge")==0 || strcmp(name, "Lt")==0
-        || strcmp(name, "Le")==0 || strcmp(name, "Eq")==0 || strcmp(name, "Not") == 0) return 1;
+        || strcmp(name, "Le")==0 || strcmp(name, "Eq")==0 || strcmp(name, "Not")==0
+        || strcmp(name, "Ne")==0 || strcmp(name, "Or")==0 || strcmp(name, "And")==0) return 1;
 
     return 0;
 }
+
+
+
 
 
 
@@ -473,6 +690,21 @@ void print_symbol_table(Symbol_table *head){
 
 
 
+
+
+
+/*************************************************************************************
+ * Prints a semantic error corresponding to given type as parameter.
+ * 
+ * Parameters:
+ *      error: Which type of error it is;
+ *      line: The line where the first token with the error appeared;
+ *      col: The column where the first token with the error appeared;
+ *      *token: Name of the token;
+ *      *type1: Type 1 of a token, for errors with only one token;
+ *      *type2: Type 2 of a token, for errors with two tokens.
+ * 
+ *************************************************************************************/
 void semantic_error(int error, int line, int col, char *token, char *type1, char *type2){
     printf("Line %d, column %d: ", line, col);
     switch (error){
@@ -483,9 +715,11 @@ void semantic_error(int error, int line, int col, char *token, char *type1, char
             printf("Cannot find symbol %s\n", token);
             break;
         case OP_CANT_APPLY_1:
+            return_operator(token);
             printf("Operator %s cannot be applied to type %s\n", token, type1);
             break;
         case OP_CANT_APPLY_2:
+            return_operator(token);
             printf("Operator %s cannot be applied to types %s, %s\n", token, type1, type2);
             break;
         case INCOMPATIBLE:
@@ -497,6 +731,28 @@ void semantic_error(int error, int line, int col, char *token, char *type1, char
         case SYM_NEVER_USED:
             printf("Symbol %s declared but never used\n", token);
     }
+}
+
+
+
+void return_operator(char *token){
+    if (strcmp(token, "Assign")==0) strcpy(token, "=");
+    else if (strcmp(token, "Add")==0) strcpy(token, "+");
+    else if (strcmp(token, "Sub")==0) strcpy(token, "-");
+    else if (strcmp(token, "Mul")==0) strcpy(token, "*");
+    else if (strcmp(token, "Div")==0) strcpy(token, "-");
+    else if (strcmp(token, "Not")==0) strcpy(token, "!");
+    else if (strcmp(token, "Gt")==0)  strcpy(token, ">");
+    else if (strcmp(token, "Ge")==0)  strcpy(token, ">=");
+    else if (strcmp(token, "Lt")==0) strcpy(token, "<");
+    else if (strcmp(token, "Le")==0) strcpy(token, "<=");
+    else if (strcmp(token, "Eq")==0) strcpy(token, "==");
+    else if (strcmp(token, "Or")==0) strcpy(token, "||");
+    else if (strcmp(token, "And")==0) strcpy(token, "&&");
+    else if (strcmp(token, "Ne")==0) strcpy(token, "!=");
+    else if (strcmp(token, "Minus")==0) strcpy(token, "-");
+    else if (strcmp(token, "Plus")==0) strcpy(token, "+");
+    else if (strcmp(token, "Mod")==0) strcpy(token, "%%");
 }
 
 
