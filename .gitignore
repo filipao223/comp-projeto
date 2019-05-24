@@ -1,6 +1,9 @@
 #C files
 *.c
 !functions.c
+!ast.c
+!semantic.c
+!gen_code.c
 
 #Output files
 *.out
