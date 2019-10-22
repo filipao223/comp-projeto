@@ -1,5 +1,5 @@
 # comp-projeto
-Projeto de COMP
+Projeto da cadeira Compiladores [COMP]
 
 Realizado por:
 João Filipe Sequeira Montenegro Nº2016228672
